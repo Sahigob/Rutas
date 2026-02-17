@@ -38,6 +38,8 @@
     <button onclick="calculateRoute()">🧭 Calcular mejor ruta</button>
     <button onclick="openInGoogleMaps()">🗺 Abrir en Google Maps</button>
     <button onclick="openInWaze()">🚗 Abrir en Waze</button>
+    <button onclick="exportClients()">💾 Exportar clientes</button>
+    <button onclick="importClients()">📂 Importar clientes</button>
 
     <h3>Filtrar por día</h3>
     <select id="filterDay" onchange="render()">
@@ -168,8 +170,40 @@ function openInWaze(){
   window.open(`https://waze.com/ul?ll=${dest}&navigate=yes`,'_blank');
 }
 
+function exportClients(){
+  const dataStr = JSON.stringify(clients, null, 2);
+  const blob = new Blob([dataStr], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'clientes_backup.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importClients(){
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = e => {
+    const file = e.target.files[0];
+    const reader = new FileReader();
+    reader.onload = () => {
+      try{
+        const imported = JSON.parse(reader.result);
+        if(Array.isArray(imported)){
+          clients = imported;
+          save();
+          alert('Clientes importados correctamente');
+        } else alert('Archivo no válido');
+      } catch(err){ alert('Error leyendo el archivo'); }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
 render();
 </script>
 </body>
 </html>
-
