@@ -69,14 +69,14 @@
   import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-firestore.js";
   import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-auth.js";
 
-  // Configuración Firebase - reemplaza apiKey y appId con los reales
+  // Configuración Firebase para RUTAS
   const firebaseConfig = {
-    apiKey: "TU_API_KEY_REAL",
+    apiKey: "AIzaSyALty_4SfeZUg6B6_dbcOeZvGYpnu4gYsE",
     authDomain: "rutas-56f86.firebaseapp.com",
     projectId: "rutas-56f86",
     storageBucket: "rutas-56f86.appspot.com",
     messagingSenderId: "1026881492897",
-    appId: "TU_APP_ID_REAL"
+    appId: "1:1026881492897:web:fcb315b53fcf5e40e3dde0"
   };
 
   const app = initializeApp(firebaseConfig);
@@ -208,7 +208,7 @@
       map.fitBounds(routeLine.getBounds());
 
       selected.forEach(c=>c.visits=(c.visits||0)+1);
-      cargarClientesDesdeFirestore(); // guardar visitas actualizadas
+      cargarClientesDesdeFirestore();
     });
   }
 
