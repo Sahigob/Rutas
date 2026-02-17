@@ -94,6 +94,7 @@
   let map = L.map('map').setView([40.4168, -3.7038], 12);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
 
+  // Login
   window.login = async function() {
     const correo = document.getElementById('email').value;
     const contrasena = document.getElementById('password').value;
@@ -106,6 +107,7 @@
     }
   };
 
+  // Agregar cliente
   window.addClient = async function() {
     const name = document.getElementById('name').value;
     const address = document.getElementById('address').value;
@@ -134,19 +136,35 @@
     cargarClientesDesdeFirestore();
   };
 
+  // Borrar cliente
   window.deleteClient = async function(id) {
     if(!confirm('¿Seguro que quieres borrar este cliente?')) return;
     await deleteDoc(doc(db,"clientes",id));
     cargarClientesDesdeFirestore();
   };
 
+  // Borrar ruta del día
   window.deleteRoute = async function(){
-    const dia = document.getElementById('day').value;
-    if(!confirm("¿Borrar ruta del "+dia+"?")) return;
-    await deleteDoc(doc(db,"rutas",dia));
-    alert("Ruta borrada. Clientes no eliminados.");
+    const diaSeleccionado = document.getElementById('day').value;
+    if(!confirm("¿Borrar ruta del "+diaSeleccionado+"?")) return;
+
+    try {
+        await deleteDoc(doc(db,"rutas",diaSeleccionado));
+        alert("Ruta borrada. Clientes no eliminados.");
+
+        // Quitar la ruta del mapa
+        if(routeLine) {
+            map.removeLayer(routeLine);
+            routeLine = null;
+            lastRouteCoords = [];
+        }
+
+    } catch(err){
+        alert("Error borrando la ruta: " + err.message);
+    }
   };
 
+  // Calcular ruta
   window.calculateRoute = async function(){
     const diaSeleccionado = document.getElementById('day').value;
     let selected=[];
@@ -170,6 +188,7 @@
     });
   };
 
+  // Abrir rutas
   window.openInGoogleMaps = function(){
     if(lastRouteCoords.length<2) return alert('Calcula ruta primero');
     let origin = lastRouteCoords[0].slice().reverse().join(',');
@@ -183,12 +202,14 @@
     window.open(`https://waze.com/ul?ll=${dest}&navigate=yes`,'_blank');
   };
 
+  // Cargar clientes desde Firestore
   async function cargarClientesDesdeFirestore() {
     const snapshot = await getDocs(coleccionClientes);
     clients = snapshot.docs.map(doc => ({...doc.data(), id: doc.id}));
     render();
   }
 
+  // Renderizar lista
   function render(){
     document.getElementById('clientList').innerHTML='';
     document.getElementById('stats').innerHTML='';
@@ -220,6 +241,7 @@
     document.getElementById('stats').innerHTML=`Clientes totales: ${clients.length}<br>Total visitas: ${totalVisits}`;
   }
 
+  // Geocoding
   async function geocode(address){
     let res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`);
     let data = await res.json();
