@@ -1,187 +1,267 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<title>Rutas</title>
+  <meta charset="utf-8" />
+  <title>Rutas Comerciales PRO</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    body { margin:0; font-family: system-ui, Arial; display:flex; height:100vh }
+    #map { flex:1 }
+    #panel { width:350px; padding:12px; overflow:auto; background:#f7f7f7; border-left:1px solid #ddd }
+    button { width:100%; padding:10px; margin:6px 0; border-radius:10px; border:none; background:#0ea5e9; color:white; font-weight:600; cursor:pointer }
+    button:hover { background:#0284c7 }
+    .client { padding:8px; border-bottom:1px solid #ddd }
+    .deleteBtn{background:#ef4444;margin-top:6px}
+    .deleteBtn:hover{background:#dc2626}
+    input, select, textarea { width:100%; margin:4px 0; padding:6px; border-radius:6px; border:1px solid #ccc }
+    small { color:#555 }
+  </style>
 </head>
 <body>
+  <div id="map"></div>
+  <div id="panel">
+    <h3>Login</h3>
+    <input id="email" placeholder="Correo" />
+    <input id="password" type="password" placeholder="Contraseña" />
+    <button id="btnLogin">🔑 Iniciar sesión</button>
+    <hr>
 
-<h1>Gestor de Rutas</h1>
+    <h3>Clientes</h3>
+    <input id="name" placeholder="Nombre cliente" />
+    <input id="address" placeholder="Dirección manual (opcional)" />
+    <textarea id="notes" placeholder="Notas"></textarea>
+    <select id="day">
+      <option value="Lunes">Lunes</option>
+      <option value="Martes">Martes</option>
+      <option value="Miércoles">Miércoles</option>
+      <option value="Jueves">Jueves</option>
+      <option value="Viernes">Viernes</option>
+    </select>
 
-<h2>Nuevo Cliente</h2>
-<input id="nombre" placeholder="Nombre">
-<input id="localidad" placeholder="Localidad">
-<input id="direccion" placeholder="Direccion">
-<input id="telefono" placeholder="Telefono">
-<button id="btnGuardar">Guardar Cliente</button>
+    <button id="btnAddClient">➕ Guardar cliente</button>
+    <button id="btnRoute">🧭 Calcular mejor ruta</button>
+    <button id="btnGoogleMaps">🗺 Abrir en Google Maps</button>
+    <button id="btnWaze">🚗 Abrir en Waze</button>
+    <button id="btnExport">💾 Exportar clientes</button>
+    <button id="btnImport">📂 Importar clientes</button>
 
-<h2>Clientes</h2>
-<div id="listaClientes"></div>
+    <h3>Filtrar por día</h3>
+    <select id="filterDay">
+      <option value="Todos">Todos</option>
+      <option value="Lunes">Lunes</option>
+      <option value="Martes">Martes</option>
+      <option value="Miércoles">Miércoles</option>
+      <option value="Jueves">Jueves</option>
+      <option value="Viernes">Viernes</option>
+    </select>
 
-<hr>
+    <h3>Estadísticas</h3>
+    <div id="stats"></div>
 
-<h2>Ruta</h2>
+    <h3>Listado</h3>
+    <div id="clientList"></div>
+  </div>
 
-<select id="dia">
-<option value="lunes">Lunes</option>
-<option value="martes">Martes</option>
-<option value="miercoles">Miércoles</option>
-<option value="jueves">Jueves</option>
-<option value="viernes">Viernes</option>
-</select>
-
-<button id="btnBorrarRuta">Borrar ruta del día</button>
-
-<h3>Ruta del día</h3>
-<div id="rutaHoy"></div>
-
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-app.js";
+  import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-firestore.js";
+  import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-auth.js";
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { 
-  getFirestore, collection, addDoc, getDocs, setDoc, doc, deleteDoc, getDoc 
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  // Configuración Firebase RUTAS
+  const firebaseConfig = {
+    apiKey: "AIzaSyALty_4SfeZUg6B6_dbcOeZvGYpnu4gYsE",
+    authDomain: "rutas-56f86.firebaseapp.com",
+    projectId: "rutas-56f86",
+    storageBucket: "rutas-56f86.appspot.com",
+    messagingSenderId: "1026881492897",
+    appId: "1:1026881492897:web:fcb315b53fcf5e40e3dde0"
+  };
 
-const firebaseConfig = {
-  apiKey: "AIzaSyALty_4SfeZUg6B6_dbcOeZvGYpnu4gYsE",
-  authDomain: "rutas-56f86.firebaseapp.com",
-  projectId: "rutas-56f86",
-  storageBucket: "rutas-56f86.firebasestorage.app",
-  messagingSenderId: "1026881492897",
-  appId: "1:1026881492897:web:fcb315b53fcf5e40e3dde0"
-};
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const auth = getAuth(app);
+  const coleccionClientes = collection(db, "clientes");
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+  // Variables globales
+  let clients = [];
+  let markers = [];
+  let routeLine;
+  let lastRouteCoords = [];
 
-let clientesCache = [];
+  // Mapa
+  let map = L.map('map').setView([40.4168, -3.7038], 12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
 
-// ================= GUARDAR CLIENTE =================
-document.getElementById("btnGuardar").addEventListener("click", async ()=>{
+  // Funciones expuestas a window
+  window.login = async function() {
+    const correo = document.getElementById('email').value;
+    const contrasena = document.getElementById('password').value;
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, correo, contrasena);
+      alert('Login exitoso: ' + userCredential.user.email);
+      cargarClientesDesdeFirestore();
+    } catch (error) {
+      alert('Error al iniciar sesión: ' + error.message);
+    }
+  };
 
-  const nombre = document.getElementById("nombre").value.trim();
-  const localidad = document.getElementById("localidad").value.trim();
-  const direccion = document.getElementById("direccion").value.trim();
-  const telefono = document.getElementById("telefono").value.trim();
+  window.addClient = async function() {
+    const name = document.getElementById('name').value;
+    const address = document.getElementById('address').value;
+    const notes = document.getElementById('notes').value;
+    const day = document.getElementById('day').value;
+    if(!name) return alert('Pon nombre del cliente');
 
-  if(!nombre) return alert("Introduce nombre");
+    let lat, lng;
 
-  await addDoc(collection(db,"clientes"),{
-    nombre, localidad, direccion, telefono
-  });
-
-  document.getElementById("nombre").value="";
-  document.getElementById("localidad").value="";
-  document.getElementById("direccion").value="";
-  document.getElementById("telefono").value="";
-
-  cargarClientes();
-});
-
-// ================= CARGAR CLIENTES =================
-async function cargarClientes(){
-
-  const cont = document.getElementById("listaClientes");
-  cont.innerHTML="Cargando...";
-
-  const snap = await getDocs(collection(db,"clientes"));
-
-  clientesCache=[];
-  snap.forEach(d=>{
-    clientesCache.push({id:d.id,...d.data()});
-  });
-
-  // Ordenar por localidad y nombre
-  clientesCache.sort((a,b)=>{
-    if(a.localidad === b.localidad)
-      return a.nombre.localeCompare(b.nombre);
-    return a.localidad.localeCompare(b.localidad);
-  });
-
-  cont.innerHTML="";
-  let locActual="";
-
-  clientesCache.forEach(c=>{
-
-    if(c.localidad !== locActual){
-      locActual = c.localidad;
-      cont.innerHTML += `<h4>${locActual}</h4>`;
+    if(address){
+      const coords = await geocode(address);
+      if(!coords) return alert('No se encontró dirección');
+      lat = coords.lat;
+      lng = coords.lng;
+    } else {
+      try {
+        const pos = await new Promise((resolve,reject)=> navigator.geolocation.getCurrentPosition(resolve,reject));
+        lat = pos.coords.latitude;
+        lng = pos.coords.longitude;
+      } catch(err){
+        return alert('No se pudo obtener tu ubicación');
+      }
     }
 
-    const div = document.createElement("div");
-    div.innerHTML = `
-      ${c.nombre} - ${c.direccion}
-      <button data-id="${c.id}">Añadir</button>
-    `;
+    await addDoc(coleccionClientes, {name,address,lat,lng,notes,day,visits:0});
+    cargarClientesDesdeFirestore();
+  };
 
-    div.querySelector("button").addEventListener("click",()=>{
-      añadirARuta(c.id);
+  window.deleteClient = async function(id) {
+    if(!confirm('¿Seguro que quieres borrar este cliente?')) return;
+    await deleteDoc(doc(db,"clientes",id));
+    cargarClientesDesdeFirestore();
+  };
+
+  window.calculateRoute = async function(){
+    let selected=[];
+    clients.forEach((c,i)=>{ if(document.getElementById('c'+i)?.checked) selected.push(c); });
+    if(selected.length<1) return alert('Selecciona clientes');
+
+    navigator.geolocation.getCurrentPosition(async pos=>{
+      let coords=[[pos.coords.longitude,pos.coords.latitude],...selected.map(c=>[c.lng,c.lat])];
+      lastRouteCoords = coords;
+
+      let coordString=coords.map(c=>c.join(',')).join(';');
+      let url=`https://router.project-osrm.org/trip/v1/driving/${coordString}?source=first&roundtrip=false&overview=full&geometries=geojson`;
+      let res=await fetch(url); let data=await res.json();
+      if(routeLine) map.removeLayer(routeLine);
+      routeLine=L.geoJSON(data.trips[0].geometry).addTo(map);
+      map.fitBounds(routeLine.getBounds());
+
+      selected.forEach(c=>c.visits=(c.visits||0)+1);
+      cargarClientesDesdeFirestore();
     });
+  };
 
-    cont.appendChild(div);
-  });
-}
+  window.openInGoogleMaps = function(){
+    if(lastRouteCoords.length<2) return alert('Calcula ruta primero');
+    let origin = lastRouteCoords[0].slice().reverse().join(',');
+    let waypoints = lastRouteCoords.slice(1).map(c=>c.slice().reverse().join(',')).join('|');
+    window.open(`https://www.google.com/maps/dir/?api=1&origin=${origin}&waypoints=${waypoints}`,'_blank');
+  };
 
-// ================= AÑADIR A RUTA =================
-async function añadirARuta(id){
+  window.openInWaze = function(){
+    if(lastRouteCoords.length<2) return alert('Calcula ruta primero');
+    let dest = lastRouteCoords[lastRouteCoords.length-1].slice().reverse().join(',');
+    window.open(`https://waze.com/ul?ll=${dest}&navigate=yes`,'_blank');
+  };
 
-  const dia = document.getElementById("dia").value;
-  const ref = doc(db,"rutas",dia);
+  window.exportClients = function(){
+    const dataStr = JSON.stringify(clients, null, 2);
+    const blob = new Blob([dataStr], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download='clientes_backup.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
-  const snap = await getDoc(ref);
-  let clientes=[];
+  window.importClients = function(){
+    const input = document.createElement('input');
+    input.type='file'; input.accept='.json';
+    input.onchange=e=>{
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload=()=>{
+        try{
+          const imported=JSON.parse(reader.result);
+          if(Array.isArray(imported)){
+            imported.forEach(async c=>{
+              await addDoc(coleccionClientes,c);
+            });
+            cargarClientesDesdeFirestore();
+            alert('Clientes importados correctamente');
+          } else alert('Archivo no válido');
+        } catch(err){ alert('Error leyendo el archivo'); }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  };
 
-  if(snap.exists()) clientes = snap.data().clientes || [];
-
-  if(!clientes.includes(id)) clientes.push(id);
-
-  await setDoc(ref,{clientes},{merge:true});
-
-  cargarRuta();
-}
-
-// ================= CARGAR RUTA =================
-async function cargarRuta(){
-
-  const dia = document.getElementById("dia").value;
-  const cont = document.getElementById("rutaHoy");
-  cont.innerHTML="Cargando...";
-
-  const snap = await getDoc(doc(db,"rutas",dia));
-
-  if(!snap.exists()){
-    cont.innerHTML="No hay ruta";
-    return;
+  async function cargarClientesDesdeFirestore() {
+    const snapshot = await getDocs(coleccionClientes);
+    clients = snapshot.docs.map(doc => ({...doc.data(), id: doc.id}));
+    render();
   }
 
-  const ruta = snap.data().clientes || [];
+  function render(){
+    document.getElementById('clientList').innerHTML='';
+    document.getElementById('stats').innerHTML='';
+    markers.forEach(m=>map.removeLayer(m));
+    markers=[];
 
-  cont.innerHTML="";
+    const filter = document.getElementById('filterDay').value;
+    const filtered = clients.map((c,i)=>({...c,_idx:i})).filter(c=> filter==='Todos' || c.day===filter);
 
-  ruta.forEach(id=>{
-    const c = clientesCache.find(x=>x.id===id);
-    if(c){
-      cont.innerHTML += `<div>${c.nombre} - ${c.localidad}</div>`;
-    }
-  });
-}
+    filtered.forEach(c=>{
+      let div=document.createElement('div'); div.className='client';
+      div.innerHTML=`
+        <input type=checkbox id=c${c._idx}> <b>${c.name}</b><br>
+        <small>${c.address|| (c.lat?.toFixed(5)+', '+c.lng?.toFixed(5))}</small><br>
+        <small>📅 ${c.day}</small><br>
+        <small>📝 ${c.notes||''}</small><br>
+        <small>Visitas: ${c.visits||0}</small>
+        <button class='deleteBtn' onclick='deleteClient("${c.id}")'>🗑️ Borrar cliente</button>
+      `;
+      document.getElementById('clientList').appendChild(div);
 
-// ================= BORRAR RUTA =================
-document.getElementById("btnBorrarRuta").addEventListener("click", async ()=>{
-  const dia = document.getElementById("dia").value;
-  await deleteDoc(doc(db,"rutas",dia));
-  cargarRuta();
-});
+      if(c.lat && c.lng){
+        let m=L.marker([c.lat,c.lng]).addTo(map).bindPopup(c.name);
+        markers.push(m);
+      }
+    });
 
-// ================= INICIO =================
-document.getElementById("dia").addEventListener("change", cargarRuta);
+    let totalVisits = clients.reduce((sum,c)=>sum+(c.visits||0),0);
+    document.getElementById('stats').innerHTML=`Clientes totales: ${clients.length}<br>Total visitas: ${totalVisits}`;
+  }
 
-window.onload = async ()=>{
-  await cargarClientes();
-  await cargarRuta();
-};
+  async function geocode(address){
+    let res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`);
+    let data = await res.json();
+    if(data.length>0) return {lat:parseFloat(data[0].lat), lng:parseFloat(data[0].lon)};
+    return null;
+  }
 
+  // Event listeners
+  document.getElementById('btnLogin').addEventListener('click', window.login);
+  document.getElementById('btnAddClient').addEventListener('click', window.addClient);
+  document.getElementById('btnRoute').addEventListener('click', window.calculateRoute);
+  document.getElementById('btnGoogleMaps').addEventListener('click', window.openInGoogleMaps);
+  document.getElementById('btnWaze').addEventListener('click', window.openInWaze);
+  document.getElementById('btnExport').addEventListener('click', window.exportClients);
+  document.getElementById('btnImport').addEventListener('click', window.importClients);
+  document.getElementById('filterDay').addEventListener('change', render);
 </script>
-
 </body>
 </html>
