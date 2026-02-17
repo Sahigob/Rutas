@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Rutas Comerciales</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    body { margin:0; font-family: system-ui, Arial; display:flex; height:100vh }
+    #map { flex:1 }
+    #panel { width:320px; padding:10px; overflow:auto; background:#f7f7f7; border-left:1px solid #ddd }
+    button { width:100%; padding:10px; margin:6px 0; border-radius:10px; border:none; background:#0ea5e9; color:white; font-weight:600; cursor:pointer }
+    button:hover { background:#0284c7 }
+    .client { padding:6px; border-bottom:1px solid #ddd }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div id="panel">
+    <h3>Clientes</h3>
+    <button onclick="addClient()">➕ Registrar cliente (usar ubicación actual)</button>
+    <button onclick="calculateRoute()">🧭 Calcular mejor ruta</button>
+    <div id="clientList"></div>
+  </div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+let map = L.map('map').setView([40.4168, -3.7038], 12);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+
+let clients = JSON.parse(localStorage.getItem('clients')||'[]');
+let markers = [];
+let routeLine;
+
+function save(){ localStorage.setItem('clients', JSON.stringify(clients)); render(); }
+
+function render(){
+  document.getElementById('clientList').innerHTML='';
+  markers.forEach(m=>map.removeLayer(m)); markers=[];
+  clients.forEach((c,i)=>{
+    let div=document.createElement('div'); div.className='client';
+    div.innerHTML=`<input type=checkbox id=c${i}> <b>${c.name}</b><br><small>${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}</small>`;
+    document.getElementById('clientList').appendChild(div);
+    let m=L.marker([c.lat,c.lng]).addTo(map).bindPopup(c.name);
+    markers.push(m);
+  });
+}
+
+function addClient(){
+  let name=prompt('Nombre del cliente:'); if(!name) return;
+  navigator.geolocation.getCurrentPosition(pos=>{
+    clients.push({name,lat:pos.coords.latitude,lng:pos.coords.longitude}); save();
+  },()=>alert('No se pudo obtener ubicación'));
+}
+
+async function calculateRoute(){
+  let selected=[];
+  clients.forEach((c,i)=>{ if(document.getElementById('c'+i).checked) selected.push(c); });
+  if(selected.length<1) return alert('Selecciona al menos un cliente');
+
+  navigator.geolocation.getCurrentPosition(async pos=>{
+    let coords=[[pos.coords.longitude,pos.coords.latitude],...selected.map(c=>[c.lng,c.lat])]
+      .map(c=>c.join(',')).join(';');
+
+    let url=`https://router.project-osrm.org/trip/v1/driving/${coords}?source=first&roundtrip=false&overview=full&geometries=geojson`;
+    let res=await fetch(url); let data=await res.json();
+    if(routeLine) map.removeLayer(routeLine);
+    routeLine=L.geoJSON(data.trips[0].geometry).addTo(map);
+    map.fitBounds(routeLine.getBounds());
+  });
+}
+
+render();
+</script>
+</body>
+</html>
