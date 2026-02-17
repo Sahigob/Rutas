@@ -45,6 +45,7 @@
     <button id="btnWaze">🚗 Abrir en Waze</button>
     <button id="btnExport">💾 Exportar clientes</button>
     <button id="btnImport">📂 Importar clientes</button>
+    <button id="btnDeleteRoute">🗑️ Borrar ruta del día</button>
 
     <h3>Filtrar por día</h3>
     <select id="filterDay">
@@ -66,10 +67,10 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-app.js";
-  import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-firestore.js";
+  import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-firestore.js";
   import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-auth.js";
 
-  // Configuración Firebase RUTAS
+  // Configuración Firebase
   const firebaseConfig = {
     apiKey: "AIzaSyALty_4SfeZUg6B6_dbcOeZvGYpnu4gYsE",
     authDomain: "rutas-56f86.firebaseapp.com",
@@ -83,18 +84,16 @@
   const db = getFirestore(app);
   const auth = getAuth(app);
   const coleccionClientes = collection(db, "clientes");
+  const coleccionRutas = collection(db, "rutas");
 
-  // Variables globales
   let clients = [];
   let markers = [];
   let routeLine;
   let lastRouteCoords = [];
 
-  // Mapa
   let map = L.map('map').setView([40.4168, -3.7038], 12);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
 
-  // Funciones expuestas a window
   window.login = async function() {
     const correo = document.getElementById('email').value;
     const contrasena = document.getElementById('password').value;
@@ -111,7 +110,6 @@
     const name = document.getElementById('name').value;
     const address = document.getElementById('address').value;
     const notes = document.getElementById('notes').value;
-    const day = document.getElementById('day').value;
     if(!name) return alert('Pon nombre del cliente');
 
     let lat, lng;
@@ -131,7 +129,7 @@
       }
     }
 
-    await addDoc(coleccionClientes, {name,address,lat,lng,notes,day,visits:0});
+    await addDoc(coleccionClientes, {name,address,lat,lng,notes,visits:0});
     cargarClientesDesdeFirestore();
   };
 
@@ -141,10 +139,21 @@
     cargarClientesDesdeFirestore();
   };
 
+  window.deleteRoute = async function(){
+    const dia = document.getElementById('day').value;
+    if(!confirm("¿Borrar ruta del "+dia+"?")) return;
+    await deleteDoc(doc(db,"rutas",dia));
+    alert("Ruta borrada. Clientes no eliminados.");
+  };
+
   window.calculateRoute = async function(){
+    const diaSeleccionado = document.getElementById('day').value;
     let selected=[];
     clients.forEach((c,i)=>{ if(document.getElementById('c'+i)?.checked) selected.push(c); });
     if(selected.length<1) return alert('Selecciona clientes');
+
+    const ids = selected.map(c=>c.id);
+    await setDoc(doc(db,"rutas",diaSeleccionado),{clientes: ids});
 
     navigator.geolocation.getCurrentPosition(async pos=>{
       let coords=[[pos.coords.longitude,pos.coords.latitude],...selected.map(c=>[c.lng,c.lat])];
@@ -153,12 +162,10 @@
       let coordString=coords.map(c=>c.join(',')).join(';');
       let url=`https://router.project-osrm.org/trip/v1/driving/${coordString}?source=first&roundtrip=false&overview=full&geometries=geojson`;
       let res=await fetch(url); let data=await res.json();
+
       if(routeLine) map.removeLayer(routeLine);
       routeLine=L.geoJSON(data.trips[0].geometry).addTo(map);
       map.fitBounds(routeLine.getBounds());
-
-      selected.forEach(c=>c.visits=(c.visits||0)+1);
-      cargarClientesDesdeFirestore();
     });
   };
 
@@ -175,40 +182,6 @@
     window.open(`https://waze.com/ul?ll=${dest}&navigate=yes`,'_blank');
   };
 
-  window.exportClients = function(){
-    const dataStr = JSON.stringify(clients, null, 2);
-    const blob = new Blob([dataStr], {type:'application/json'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download='clientes_backup.json';
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  window.importClients = function(){
-    const input = document.createElement('input');
-    input.type='file'; input.accept='.json';
-    input.onchange=e=>{
-      const file = e.target.files[0];
-      const reader = new FileReader();
-      reader.onload=()=>{
-        try{
-          const imported=JSON.parse(reader.result);
-          if(Array.isArray(imported)){
-            imported.forEach(async c=>{
-              await addDoc(coleccionClientes,c);
-            });
-            cargarClientesDesdeFirestore();
-            alert('Clientes importados correctamente');
-          } else alert('Archivo no válido');
-        } catch(err){ alert('Error leyendo el archivo'); }
-      };
-      reader.readAsText(file);
-    };
-    input.click();
-  };
-
   async function cargarClientesDesdeFirestore() {
     const snapshot = await getDocs(coleccionClientes);
     clients = snapshot.docs.map(doc => ({...doc.data(), id: doc.id}));
@@ -218,22 +191,26 @@
   function render(){
     document.getElementById('clientList').innerHTML='';
     document.getElementById('stats').innerHTML='';
-    markers.forEach(m=>map.removeLayer(m));
-    markers=[];
+    markers.forEach(m=>map.removeLayer(m)); markers=[];
 
-    const filter = document.getElementById('filterDay').value;
-    const filtered = clients.map((c,i)=>({...c,_idx:i})).filter(c=> filter==='Todos' || c.day===filter);
+    let ordered=[...clients];
+    ordered.sort((a,b)=>{
+      let locA=(a.address||'').toLowerCase();
+      let locB=(b.address||'').toLowerCase();
+      if(locA===locB) return a.name.localeCompare(b.name);
+      return locA.localeCompare(locB);
+    });
+
+    const filtered=ordered.map((c,i)=>({...c,_idx:i}));
 
     filtered.forEach(c=>{
       let div=document.createElement('div'); div.className='client';
       div.innerHTML=`
         <input type=checkbox id=c${c._idx}> <b>${c.name}</b><br>
         <small>${c.address|| (c.lat?.toFixed(5)+', '+c.lng?.toFixed(5))}</small><br>
-        <small>📅 ${c.day}</small><br>
         <small>📝 ${c.notes||''}</small><br>
         <small>Visitas: ${c.visits||0}</small>
-        <button class='deleteBtn' onclick='deleteClient("${c.id}")'>🗑️ Borrar cliente</button>
-      `;
+        <button class='deleteBtn' onclick='deleteClient("${c.id}")'>🗑️ Borrar cliente</button>`;
       document.getElementById('clientList').appendChild(div);
 
       if(c.lat && c.lng){
@@ -253,14 +230,12 @@
     return null;
   }
 
-  // Event listeners
   document.getElementById('btnLogin').addEventListener('click', window.login);
   document.getElementById('btnAddClient').addEventListener('click', window.addClient);
   document.getElementById('btnRoute').addEventListener('click', window.calculateRoute);
   document.getElementById('btnGoogleMaps').addEventListener('click', window.openInGoogleMaps);
   document.getElementById('btnWaze').addEventListener('click', window.openInWaze);
-  document.getElementById('btnExport').addEventListener('click', window.exportClients);
-  document.getElementById('btnImport').addEventListener('click', window.importClients);
+  document.getElementById('btnDeleteRoute').addEventListener('click', window.deleteRoute);
   document.getElementById('filterDay').addEventListener('change', render);
 </script>
 </body>
