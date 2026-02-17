@@ -110,6 +110,7 @@
     const name = document.getElementById('name').value;
     const address = document.getElementById('address').value;
     const notes = document.getElementById('notes').value;
+    const day = document.getElementById('day').value;
     if(!name) return alert('Pon nombre del cliente');
 
     let lat, lng;
@@ -129,7 +130,7 @@
       }
     }
 
-    await addDoc(coleccionClientes, {name,address,lat,lng,notes,visits:0});
+    await addDoc(coleccionClientes, {name,address,lat,lng,notes,day,visits:0});
     cargarClientesDesdeFirestore();
   };
 
@@ -193,30 +194,26 @@
     document.getElementById('stats').innerHTML='';
     markers.forEach(m=>map.removeLayer(m)); markers=[];
 
-    let ordered=[...clients];
-    ordered.sort((a,b)=>{
-      let locA=(a.address||'').toLowerCase();
-      let locB=(b.address||'').toLowerCase();
-      if(locA===locB) return a.name.localeCompare(b.name);
-      return locA.localeCompare(locB);
-    });
+    // Ordenar alfabéticamente por nombre
+    let ordered = [...clients].sort((a,b)=> a.name.localeCompare(b.name));
 
-    const filtered=ordered.map((c,i)=>({...c,_idx:i}));
+    const filtered = ordered.map((c,i)=>({...c,_idx:i}));
 
     filtered.forEach(c=>{
-      let div=document.createElement('div'); div.className='client';
-      div.innerHTML=`
-        <input type=checkbox id=c${c._idx}> <b>${c.name}</b><br>
-        <small>${c.address|| (c.lat?.toFixed(5)+', '+c.lng?.toFixed(5))}</small><br>
-        <small>📝 ${c.notes||''}</small><br>
-        <small>Visitas: ${c.visits||0}</small>
-        <button class='deleteBtn' onclick='deleteClient("${c.id}")'>🗑️ Borrar cliente</button>`;
-      document.getElementById('clientList').appendChild(div);
+        let div=document.createElement('div'); div.className='client';
+        div.innerHTML=`
+            <input type=checkbox id=c${c._idx}> <b>${c.name}</b><br>
+            <small>${c.address || (c.lat?.toFixed(5)+', '+c.lng?.toFixed(5))}</small><br>
+            <small>📅 ${c.day}</small><br>
+            <small>📝 ${c.notes||''}</small><br>
+            <small>Visitas: ${c.visits||0}</small>
+            <button class='deleteBtn' onclick='deleteClient("${c.id}")'>🗑️ Borrar cliente</button>`;
+        document.getElementById('clientList').appendChild(div);
 
-      if(c.lat && c.lng){
-        let m=L.marker([c.lat,c.lng]).addTo(map).bindPopup(c.name);
-        markers.push(m);
-      }
+        if(c.lat && c.lng){
+            let m=L.marker([c.lat,c.lng]).addTo(map).bindPopup(c.name);
+            markers.push(m);
+        }
     });
 
     let totalVisits = clients.reduce((sum,c)=>sum+(c.visits||0),0);
@@ -230,6 +227,7 @@
     return null;
   }
 
+  // Event listeners
   document.getElementById('btnLogin').addEventListener('click', window.login);
   document.getElementById('btnAddClient').addEventListener('click', window.addClient);
   document.getElementById('btnRoute').addEventListener('click', window.calculateRoute);
