@@ -2,38 +2,27 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>RUTAS</title>
-<style>
-body{font-family:Arial;margin:20px;background:#f2f2f2}
-h2{margin-top:40px}
-input,select,button{padding:6px;margin:4px}
-.cliente{background:white;padding:6px;margin:4px;border-radius:6px}
-.localidad{background:#ddd;padding:5px;margin-top:15px;font-weight:bold}
-.ruta{background:#d9ffd9;padding:6px;margin:3px;border-radius:6px}
-</style>
+<title>Rutas</title>
 </head>
-
 <body>
 
-<h1>GESTOR DE RUTAS</h1>
+<h1>Gestor de Rutas</h1>
 
-<!-- ================== CLIENTES ================== -->
 <h2>Nuevo Cliente</h2>
 <input id="nombre" placeholder="Nombre">
 <input id="localidad" placeholder="Localidad">
 <input id="direccion" placeholder="Direccion">
 <input id="telefono" placeholder="Telefono">
-<button onclick="guardarCliente()">Guardar Cliente</button>
+<button id="btnGuardar">Guardar Cliente</button>
 
-<h2>Base de datos de clientes</h2>
+<h2>Clientes</h2>
 <div id="listaClientes"></div>
 
 <hr>
 
-<!-- ================== RUTAS ================== -->
-<h2>Crear ruta</h2>
+<h2>Ruta</h2>
 
-<select id="dia" onchange="cargarRuta()">
+<select id="dia">
 <option value="lunes">Lunes</option>
 <option value="martes">Martes</option>
 <option value="miercoles">Miércoles</option>
@@ -41,17 +30,16 @@ input,select,button{padding:6px;margin:4px}
 <option value="viernes">Viernes</option>
 </select>
 
-<button onclick="borrarRuta()">Borrar ruta del día</button>
+<button id="btnBorrarRuta">Borrar ruta del día</button>
 
 <h3>Ruta del día</h3>
 <div id="rutaHoy"></div>
 
-<!-- ================== FIREBASE ================== -->
 <script type="module">
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import {
-  getFirestore, collection, addDoc, getDocs, setDoc, doc, deleteDoc, getDoc
+import { 
+  getFirestore, collection, addDoc, getDocs, setDoc, doc, deleteDoc, getDoc 
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -66,35 +54,20 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-window.db=db;
-window.collection=collection;
-window.addDoc=addDoc;
-window.getDocs=getDocs;
-window.setDoc=setDoc;
-window.doc=doc;
-window.deleteDoc=deleteDoc;
-window.getDoc=getDoc;
+let clientesCache = [];
 
-</script>
+// ================= GUARDAR CLIENTE =================
+document.getElementById("btnGuardar").addEventListener("click", async ()=>{
 
-<!-- ================== LOGICA ================== -->
-<script>
+  const nombre = document.getElementById("nombre").value.trim();
+  const localidad = document.getElementById("localidad").value.trim();
+  const direccion = document.getElementById("direccion").value.trim();
+  const telefono = document.getElementById("telefono").value.trim();
 
-let clientesCache=[];
-let rutaActual=[];
-
-// -------- GUARDAR CLIENTE --------
-async function guardarCliente(){
-
-  const nombre=document.getElementById("nombre").value.trim();
-  const localidad=document.getElementById("localidad").value.trim();
-  const direccion=document.getElementById("direccion").value.trim();
-  const telefono=document.getElementById("telefono").value.trim();
-
-  if(!nombre)return alert("Introduce nombre");
+  if(!nombre) return alert("Introduce nombre");
 
   await addDoc(collection(db,"clientes"),{
-    nombre,localidad,direccion,telefono
+    nombre, localidad, direccion, telefono
   });
 
   document.getElementById("nombre").value="";
@@ -103,22 +76,24 @@ async function guardarCliente(){
   document.getElementById("telefono").value="";
 
   cargarClientes();
-}
+});
 
-// -------- CARGAR CLIENTES --------
+// ================= CARGAR CLIENTES =================
 async function cargarClientes(){
 
-  const cont=document.getElementById("listaClientes");
+  const cont = document.getElementById("listaClientes");
   cont.innerHTML="Cargando...";
 
-  const snap=await getDocs(collection(db,"clientes"));
+  const snap = await getDocs(collection(db,"clientes"));
 
   clientesCache=[];
-  snap.forEach(d=>clientesCache.push({id:d.id,...d.data()}));
+  snap.forEach(d=>{
+    clientesCache.push({id:d.id,...d.data()});
+  });
 
-  // ordenar por localidad y nombre
+  // Ordenar por localidad y nombre
   clientesCache.sort((a,b)=>{
-    if(a.localidad===b.localidad)
+    if(a.localidad === b.localidad)
       return a.nombre.localeCompare(b.nombre);
     return a.localidad.localeCompare(b.localidad);
   });
@@ -128,30 +103,35 @@ async function cargarClientes(){
 
   clientesCache.forEach(c=>{
 
-    if(c.localidad!==locActual){
-      locActual=c.localidad;
-      cont.innerHTML+=`<div class="localidad">${locActual}</div>`;
+    if(c.localidad !== locActual){
+      locActual = c.localidad;
+      cont.innerHTML += `<h4>${locActual}</h4>`;
     }
 
-    cont.innerHTML+=`
-      <div class="cliente">
-        <b>${c.nombre}</b> - ${c.direccion}
-        <button onclick="añadirARuta('${c.id}')">Añadir</button>
-      </div>`;
-  });
+    const div = document.createElement("div");
+    div.innerHTML = `
+      ${c.nombre} - ${c.direccion}
+      <button data-id="${c.id}">Añadir</button>
+    `;
 
+    div.querySelector("button").addEventListener("click",()=>{
+      añadirARuta(c.id);
+    });
+
+    cont.appendChild(div);
+  });
 }
 
-// -------- AÑADIR A RUTA --------
+// ================= AÑADIR A RUTA =================
 async function añadirARuta(id){
 
-  const dia=document.getElementById("dia").value;
-  const ref=doc(db,"rutas",dia);
+  const dia = document.getElementById("dia").value;
+  const ref = doc(db,"rutas",dia);
 
-  const snap=await getDoc(ref);
-
+  const snap = await getDoc(ref);
   let clientes=[];
-  if(snap.exists()) clientes=snap.data().clientes||[];
+
+  if(snap.exists()) clientes = snap.data().clientes || [];
 
   if(!clientes.includes(id)) clientes.push(id);
 
@@ -160,44 +140,46 @@ async function añadirARuta(id){
   cargarRuta();
 }
 
-// -------- CARGAR RUTA --------
+// ================= CARGAR RUTA =================
 async function cargarRuta(){
 
-  const dia=document.getElementById("dia").value;
-  const cont=document.getElementById("rutaHoy");
-  cont.innerHTML="Cargando ruta...";
+  const dia = document.getElementById("dia").value;
+  const cont = document.getElementById("rutaHoy");
+  cont.innerHTML="Cargando...";
 
-  const snap=await getDoc(doc(db,"rutas",dia));
+  const snap = await getDoc(doc(db,"rutas",dia));
 
   if(!snap.exists()){
     cont.innerHTML="No hay ruta";
     return;
   }
 
-  rutaActual=snap.data().clientes||[];
+  const ruta = snap.data().clientes || [];
 
   cont.innerHTML="";
 
-  rutaActual.forEach(id=>{
-    const c=clientesCache.find(x=>x.id===id);
+  ruta.forEach(id=>{
+    const c = clientesCache.find(x=>x.id===id);
     if(c){
-      cont.innerHTML+=`<div class="ruta">${c.nombre} - ${c.localidad}</div>`;
+      cont.innerHTML += `<div>${c.nombre} - ${c.localidad}</div>`;
     }
   });
 }
 
-// -------- BORRAR RUTA --------
-async function borrarRuta(){
-  const dia=document.getElementById("dia").value;
+// ================= BORRAR RUTA =================
+document.getElementById("btnBorrarRuta").addEventListener("click", async ()=>{
+  const dia = document.getElementById("dia").value;
   await deleteDoc(doc(db,"rutas",dia));
   cargarRuta();
-}
+});
 
-// INICIO
-window.onload=async()=>{
+// ================= INICIO =================
+document.getElementById("dia").addEventListener("change", cargarRuta);
+
+window.onload = async ()=>{
   await cargarClientes();
   await cargarRuta();
-}
+};
 
 </script>
 
