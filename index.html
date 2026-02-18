@@ -146,12 +146,15 @@
     cargarClientesDesdeFirestore();
   };
 
-  // BORRAR RUTA + MARCADORES
+  // BORRAR RUTA + MARCADORES SELECCIONADOS
   window.clearRoute = function(){
     if(routeLine){ map.removeLayer(routeLine); routeLine = null; }
-    markers.forEach(m=>map.removeLayer(m));
+    markers.forEach(m=>{
+      if(m) map.removeLayer(m);
+    });
     markers=[];
     lastRouteCoords=[];
+    cargarClientesDesdeFirestore(); // recarga todos los marcadores en azul
   };
 
   // CALCULAR RUTA y marcar seleccionados en rojo
@@ -172,7 +175,7 @@
       routeLine = L.geoJSON(data.trips[0].geometry).addTo(map);
       map.fitBounds(routeLine.getBounds());
 
-      // Actualizar iconos de los marcadores existentes
+      // Actualizar iconos de todos los marcadores
       clients.forEach((c, idx) => {
         let marker = markers[idx];
         if(marker){
@@ -184,8 +187,10 @@
         }
       });
 
+      // Actualizar visitas sin refrescar marcadores
       selected.forEach(c => c.visits = (c.visits||0)+1);
-      cargarClientesDesdeFirestore();
+      let totalVisits = clients.reduce((sum,c)=>sum+(c.visits||0),0);
+      document.getElementById('stats').innerHTML=`Clientes totales: ${clients.length}<br>Total visitas: ${totalVisits}`;
     });
   };
 
@@ -250,7 +255,7 @@
     const filtered = clients
       .map((c,i)=>({...c,_idx:i}))
       .filter(c=> filter==='Todos' || c.day===filter)
-      .sort((a,b)=>a.name.localeCompare(b.name)); // orden alfabético
+      .sort((a,b)=>a.name.localeCompare(b.name));
 
     filtered.forEach(c=>{
       let div=document.createElement('div'); div.className='client';
