@@ -72,7 +72,6 @@
   import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-firestore.js";
   import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-auth.js";
 
-  // Configuración Firebase
   const firebaseConfig = {
     apiKey: "AIzaSyALty_4SfeZUg6B6_dbcOeZvGYpnu4gYsE",
     authDomain: "rutas-56f86.firebaseapp.com",
@@ -86,7 +85,6 @@
   const db = getFirestore(app);
   const auth = getAuth(app);
   const coleccionClientes = collection(db, "clientes");
-  window.coleccionClientes = coleccionClientes; // Para usar en consola si quieres
 
   let clients = [];
   let markers = [];
@@ -109,7 +107,7 @@
     }
   };
 
-  // AGREGAR CLIENTE (con coordenadas opcionales)
+  // AGREGAR CLIENTE (lat/lng opcional)
   window.addClient = async function() {
     const name = document.getElementById('name').value;
     const address = document.getElementById('address').value;
@@ -148,7 +146,7 @@
     cargarClientesDesdeFirestore();
   };
 
-  // BORRAR RUTA
+  // BORRAR RUTA + MARCADORES
   window.clearRoute = function(){
     if(routeLine){ map.removeLayer(routeLine); routeLine = null; }
     markers.forEach(m=>map.removeLayer(m));
@@ -171,6 +169,18 @@
       if(routeLine) map.removeLayer(routeLine);
       routeLine=L.geoJSON(data.trips[0].geometry).addTo(map);
       map.fitBounds(routeLine.getBounds());
+
+      // Resaltar clientes seleccionados en rojo
+      markers.forEach(m=>map.removeLayer(m));
+      markers=[];
+      clients.forEach((c,i)=>{
+        let iconUrl = selected.includes(c)
+          ? 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-red.png'
+          : 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png';
+        let icon = L.icon({iconUrl, shadowUrl:'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png'});
+        let m = L.marker([c.lat,c.lng],{icon}).addTo(map).bindPopup(c.name);
+        markers.push(m);
+      });
 
       selected.forEach(c=>c.visits=(c.visits||0)+1);
       cargarClientesDesdeFirestore();
@@ -233,8 +243,6 @@
   function render(){
     document.getElementById('clientList').innerHTML='';
     document.getElementById('stats').innerHTML='';
-    markers.forEach(m=>map.removeLayer(m));
-    markers=[];
 
     const filter = document.getElementById('filterDay').value;
     const filtered = clients
@@ -254,8 +262,10 @@
       `;
       document.getElementById('clientList').appendChild(div);
 
+      // Marcadores azules (no seleccionados) al renderizar lista
+      let icon = L.icon({iconUrl:'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png', shadowUrl:'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png'});
       if(c.lat && c.lng){
-        let m=L.marker([c.lat,c.lng]).addTo(map).bindPopup(c.name);
+        let m=L.marker([c.lat,c.lng], {icon}).addTo(map).bindPopup(c.name);
         markers.push(m);
       }
     });
@@ -271,7 +281,7 @@
     return null;
   }
 
-  // Event listeners
+  // EVENTOS
   document.getElementById('btnLogin').addEventListener('click', window.login);
   document.getElementById('btnAddClient').addEventListener('click', window.addClient);
   document.getElementById('btnRoute').addEventListener('click', window.calculateRoute);
