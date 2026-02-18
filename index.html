@@ -86,6 +86,18 @@ const db = getFirestore(app);
 const auth = getAuth(app);
 const coleccionClientes = collection(db, "clientes");
 
+// Iconos
+const iconAzul = L.icon({
+  iconUrl:'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl:'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+  iconSize:[25,41], iconAnchor:[12,41], popupAnchor:[1,-34], shadowSize:[41,41]
+});
+const iconRojo = L.icon({
+  iconUrl:'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-red.png',
+  shadowUrl:'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+  iconSize:[25,41], iconAnchor:[12,41], popupAnchor:[1,-34], shadowSize:[41,41]
+});
+
 // Variables
 let clients = [];
 let markers = [];
@@ -180,21 +192,18 @@ window.calculateRoute = async function(){
       let marker = markers[idx];
       if(marker){
         let isSelected = selected.some(s => s.id === c.id);
-        let iconUrl = isSelected 
-          ? 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-red.png'
-          : 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png';
-        marker.setIcon(L.icon({iconUrl, shadowUrl:'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png'}));
+        marker.setIcon(isSelected ? iconRojo : iconAzul);
       }
     });
 
-    // Actualizar visitas sin refrescar marcadores
+    // Actualizar visitas
     selected.forEach(c => c.visits = (c.visits||0)+1);
     let totalVisits = clients.reduce((sum,c)=>sum+(c.visits||0),0);
     document.getElementById('stats').innerHTML=`Clientes totales: ${clients.length}<br>Total visitas: ${totalVisits}`;
   });
 };
 
-// Abrir en Google Maps
+// Google Maps
 window.openInGoogleMaps = function(){
   if(lastRouteCoords.length<2) return alert('Calcula ruta primero');
   let origin = lastRouteCoords[0].slice().reverse().join(',');
@@ -202,7 +211,7 @@ window.openInGoogleMaps = function(){
   window.open(`https://www.google.com/maps/dir/?api=1&origin=${origin}&waypoints=${waypoints}`,'_blank');
 };
 
-// Abrir en Waze
+// Waze
 window.openInWaze = function(){
   if(lastRouteCoords.length<2) return alert('Calcula ruta primero');
   let dest = lastRouteCoords[lastRouteCoords.length-1].slice().reverse().join(',');
@@ -277,7 +286,7 @@ function render(){
   markers = [];
   clients.forEach(c=>{
     if(c.lat && c.lng){
-      let m = L.marker([c.lat,c.lng], {icon:L.icon({iconUrl:'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png', shadowUrl:'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png'})}).addTo(map).bindPopup(c.name);
+      let m = L.marker([c.lat,c.lng], {icon:iconAzul}).addTo(map).bindPopup(c.name);
       markers.push(m);
     }
   });
@@ -304,7 +313,6 @@ document.getElementById('btnExport').addEventListener('click', window.exportClie
 document.getElementById('btnImport').addEventListener('click', window.importClients);
 document.getElementById('btnClearRoute').addEventListener('click', window.clearRoute);
 document.getElementById('filterDay').addEventListener('change', render);
-
 </script>
 </body>
 </html>
