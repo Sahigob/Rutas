@@ -154,36 +154,37 @@
     lastRouteCoords=[];
   };
 
+  // CALCULAR RUTA y marcar seleccionados en rojo
   window.calculateRoute = async function(){
-    let selected=[];
+    let selected = [];
     clients.forEach((c,i)=>{ if(document.getElementById('c'+i)?.checked) selected.push(c); });
-    if(selected.length<1) return alert('Selecciona clientes');
+    if(selected.length < 1) return alert('Selecciona clientes');
 
     navigator.geolocation.getCurrentPosition(async pos=>{
       let coords=[[pos.coords.longitude,pos.coords.latitude],...selected.map(c=>[c.lng,c.lat])];
       lastRouteCoords = coords;
 
-      let coordString=coords.map(c=>c.join(',')).join(';');
-      let url=`https://router.project-osrm.org/trip/v1/driving/${coordString}?source=first&roundtrip=false&overview=full&geometries=geojson`;
-      let res=await fetch(url); let data=await res.json();
+      let coordString = coords.map(c=>c.join(',')).join(';');
+      let url = `https://router.project-osrm.org/trip/v1/driving/${coordString}?source=first&roundtrip=false&overview=full&geometries=geojson`;
+      let res = await fetch(url); 
+      let data = await res.json();
       if(routeLine) map.removeLayer(routeLine);
-      routeLine=L.geoJSON(data.trips[0].geometry).addTo(map);
+      routeLine = L.geoJSON(data.trips[0].geometry).addTo(map);
       map.fitBounds(routeLine.getBounds());
 
-      // Resaltar clientes seleccionados en rojo
-      markers.forEach(m=>map.removeLayer(m));
-      markers=[];
-      clients.forEach((c,i)=>{
-        let isSelected = selected.some(s => s.id === c.id); // compara por ID
-        let iconUrl = isSelected
-          ? 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-red.png'
-          : 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png';
-        let icon = L.icon({iconUrl, shadowUrl:'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png'});
-        let m = L.marker([c.lat,c.lng],{icon}).addTo(map).bindPopup(c.name);
-        markers.push(m);
+      // Actualizar iconos de los marcadores existentes
+      clients.forEach((c, idx) => {
+        let marker = markers[idx];
+        if(marker){
+          let isSelected = selected.some(s => s.id === c.id);
+          let iconUrl = isSelected 
+            ? 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-red.png' 
+            : 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png';
+          marker.setIcon(L.icon({iconUrl, shadowUrl:'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png'}));
+        }
       });
 
-      selected.forEach(c=>c.visits=(c.visits||0)+1);
+      selected.forEach(c => c.visits = (c.visits||0)+1);
       cargarClientesDesdeFirestore();
     });
   };
@@ -262,11 +263,15 @@
         <button class='deleteBtn' onclick='deleteClient("${c.id}")'>🗑️ Borrar cliente</button>
       `;
       document.getElementById('clientList').appendChild(div);
+    });
 
-      // Marcadores azules por defecto
+    // Marcadores
+    markers.forEach(m=>map.removeLayer(m));
+    markers = [];
+    clients.forEach(c=>{
       let icon = L.icon({iconUrl:'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png', shadowUrl:'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png'});
       if(c.lat && c.lng){
-        let m=L.marker([c.lat,c.lng], {icon}).addTo(map).bindPopup(c.name);
+        let m = L.marker([c.lat,c.lng], {icon}).addTo(map).bindPopup(c.name);
         markers.push(m);
       }
     });
