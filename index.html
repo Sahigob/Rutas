@@ -107,7 +107,7 @@
     }
   };
 
-  // AGREGAR CLIENTE (lat/lng opcional)
+  // AGREGAR CLIENTE
   window.addClient = async function() {
     const name = document.getElementById('name').value;
     const address = document.getElementById('address').value;
@@ -174,7 +174,8 @@
       markers.forEach(m=>map.removeLayer(m));
       markers=[];
       clients.forEach((c,i)=>{
-        let iconUrl = selected.includes(c)
+        let isSelected = selected.some(s => s.id === c.id); // compara por ID
+        let iconUrl = isSelected
           ? 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-red.png'
           : 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png';
         let icon = L.icon({iconUrl, shadowUrl:'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png'});
@@ -262,7 +263,7 @@
       `;
       document.getElementById('clientList').appendChild(div);
 
-      // Marcadores azules (no seleccionados) al renderizar lista
+      // Marcadores azules por defecto
       let icon = L.icon({iconUrl:'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png', shadowUrl:'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png'});
       if(c.lat && c.lng){
         let m=L.marker([c.lat,c.lng], {icon}).addTo(map).bindPopup(c.name);
