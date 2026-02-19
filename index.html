@@ -2,182 +2,241 @@
 <html lang="es">
 <head>
 <meta charset="utf-8" />
-<title>Rutas Comerciales PRO - Calendario</title>
+<title>Rutas Comerciales PRO - Local</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
-body { margin:0; font-family: system-ui, Arial; display:flex; height:100vh }
-#map { flex:1 }
-#panel { width:380px; padding:12px; overflow:auto; background:#f7f7f7; border-left:1px solid #ddd }
-button { width:100%; padding:10px; margin:6px 0; border-radius:10px; border:none; background:#0ea5e9; color:white; font-weight:600; cursor:pointer }
-button:hover { background:#0284c7 }
-.client { padding:8px; border-bottom:1px solid #ddd }
-.deleteBtn{background:#ef4444;margin-top:6px}
-.deleteBtn:hover{background:#dc2626}
-input, select, textarea { width:100%; margin:4px 0; padding:6px; border-radius:6px; border:1px solid #ccc }
-small { color:#555 }
+  body { margin:0; font-family: system-ui, Arial; display:flex; height:100vh }
+  #map { flex:1 }
+  #panel { width:400px; padding:12px; overflow:auto; background:#f7f7f7; border-left:1px solid #ddd }
+  button { width:100%; padding:10px; margin:6px 0; border-radius:10px; border:none; background:#0ea5e9; color:white; font-weight:600; cursor:pointer }
+  button:hover { background:#0284c7 }
+  .deleteBtn{background:#ef4444;margin-top:6px}
+  .deleteBtn:hover{background:#dc2626}
+  input, select, textarea { width:100%; margin:4px 0; padding:6px; border-radius:6px; border:1px solid #ccc }
+  small { color:#555 }
+  h4 { margin:10px 0 4px 0 }
 </style>
 </head>
 <body>
+
 <div id="map"></div>
 <div id="panel">
-<h3>Login</h3>
-<input id="email" placeholder="Correo" />
-<input id="password" type="password" placeholder="Contraseña" />
-<button id="btnLogin">🔑 Iniciar sesión</button>
-<hr>
+  <h3>Clientes</h3>
+  <input id="name" placeholder="Nombre cliente" />
+  <input id="address" placeholder="Dirección manual (opcional)" />
+  <textarea id="notes" placeholder="Notas"></textarea>
+  <input id="lat" placeholder="Latitud (opcional)" />
+  <input id="lng" placeholder="Longitud (opcional)" />
+  <button id="btnAddClient">➕ Guardar cliente</button>
+  <hr>
 
-<h3>Clientes</h3>
-<input id="name" placeholder="Nombre cliente" />
-<input id="address" placeholder="Dirección manual (opcional)" />
-<textarea id="notes" placeholder="Notas"></textarea>
-<input type="date" id="routeDate" />
-<input id="lat" placeholder="Latitud (opcional)" />
-<input id="lng" placeholder="Longitud (opcional)" />
-<button id="btnAddClient">➕ Guardar cliente</button>
-<button id="btnRoute">🧭 Calcular y guardar ruta</button>
-<button id="btnExport">💾 Exportar clientes</button>
-<button id="btnImport">📂 Importar clientes</button>
-<button id="btnClearRoute">🧹 Borrar ruta seleccionada</button>
+  <h3>Rutas</h3>
+  <input type="date" id="routeDate" />
+  <button id="btnCreateRoute">🧭 Crear nueva ruta</button>
+  <h4>Rutas guardadas</h4>
+  <div id="savedRoutes"></div>
+  <button id="btnClearRoute">🧹 Borrar ruta actual</button>
+  <hr>
 
-<h3>Rutas guardadas</h3>
-<div id="savedRoutes"></div>
+  <h3>Export / Import</h3>
+  <button id="btnExport">💾 Exportar clientes y rutas</button>
+  <button id="btnImport">📂 Importar clientes y rutas</button>
 
-<h3>Listado de clientes</h3>
-<div id="clientList"></div>
+  <h3>Listado de Clientes</h3>
+  <div id="clientList"></div>
 </div>
 
-<script src="https://www.gstatic.com/firebasejs/10.3.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.3.0/firebase-firestore.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.3.0/firebase-auth.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-const firebaseConfig = { apiKey:"AIzaSyALty_4SfeZUg6B6_dbcOeZvGYpnu4gYsE", authDomain:"rutas-56f86.firebaseapp.com", projectId:"rutas-56f86", storageBucket:"rutas-56f86.appspot.com", messagingSenderId:"1026881492897", appId:"1:1026881492897:web:fcb315b53fcf5e40e3dde0" };
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-const auth = firebase.auth();
-const coleccionClientes = db.collection('clientes');
-
-let clients = [], markers = [], redMarkers = [], routeLine;
-let rutasGuardadas = {};
-
+// === Variables globales ===
+let clients = JSON.parse(localStorage.getItem('clients')||'[]');
+let routes = JSON.parse(localStorage.getItem('routes')||'{}');
+let markers = [];
+let redMarkers = [];
+let routeLine;
 let map = L.map('map').setView([40.4168, -3.7038], 12);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
 
-// LOGIN
-function login(){
-  const correo=document.getElementById('email').value;
-  const contrasena=document.getElementById('password').value;
-  auth.signInWithEmailAndPassword(correo, contrasena)
-    .then(user=>{ alert('Login exitoso: '+user.user.email); cargarClientes(); })
-    .catch(e=>alert('Error login: '+e.message));
-}
+// === Funciones ===
+function saveClients() { localStorage.setItem('clients', JSON.stringify(clients)); }
+function saveRoutes() { localStorage.setItem('routes', JSON.stringify(routes)); }
 
-// AGREGAR CLIENTE
-async function addClient(){
-  const name=document.getElementById('name').value;
-  const address=document.getElementById('address').value;
-  const notes=document.getElementById('notes').value;
-  const latInput=document.getElementById('lat').value;
-  const lngInput=document.getElementById('lng').value;
-  if(!name) return alert('Pon nombre');
-
-  let lat,lng;
-  if(latInput && lngInput){ lat=parseFloat(latInput); lng=parseFloat(lngInput); }
-  else if(address){ const coords=await geocode(address); if(!coords) return alert('No se encontró dirección'); lat=coords.lat; lng=coords.lng; }
-  else{ try{ const pos=await new Promise((res,rej)=>navigator.geolocation.getCurrentPosition(res,rej)); lat=pos.coords.latitude; lng=pos.coords.longitude; } catch(e){ return alert('No se pudo obtener ubicación'); } }
-
-  await coleccionClientes.add({name,address,lat,lng,notes});
-  cargarClientes();
-}
-
-// CARGAR CLIENTES
-async function cargarClientes(){
-  const snapshot = await coleccionClientes.get();
-  clients = snapshot.docs.map(d=>({...d.data(), id:d.id}));
-  renderClientes();
-}
-
-function renderClientes(){
-  const list=document.getElementById('clientList'); list.innerHTML='';
-  markers.forEach(m=>map.removeLayer(m)); markers=[];
-  clients.forEach((c,i)=>{
-    let div=document.createElement('div'); div.className='client';
-    div.innerHTML=`<input type=checkbox id=c${i}> <b>${c.name}</b><br><small>${c.address||c.lat+', '+c.lng}</small><br><small>📝 ${c.notes||''}</small>`;
-    list.appendChild(div);
-    if(c.lat && c.lng){ let m=L.marker([c.lat,c.lng]).addTo(map).bindPopup(c.name); markers.push(m); }
-  });
-}
-
-// GEOCODING
 async function geocode(address){
-  let res=await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`);
-  let data=await res.json();
+  if(!address) return null;
+  let res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`);
+  let data = await res.json();
   if(data.length>0) return {lat:parseFloat(data[0].lat), lng:parseFloat(data[0].lon)};
   return null;
 }
 
-// CALCULAR Y GUARDAR RUTA
-function calculateRoute(){
-  let selected=[];
-  clients.forEach((c,i)=>{ if(document.getElementById('c'+i)?.checked) selected.push(c); });
-  if(selected.length<1) return alert('Selecciona clientes');
-
-  const fecha=document.getElementById('routeDate').value;
-  if(!fecha) return alert('Selecciona una fecha');
-
-  navigator.geolocation.getCurrentPosition(async pos=>{
-    let coords=[[pos.coords.longitude,pos.coords.latitude],...selected.map(c=>[c.lng,c.lat])];
-    let coordString=coords.map(c=>c.join(',')).join(';');
-    let url=`https://router.project-osrm.org/trip/v1/driving/${coordString}?source=first&roundtrip=false&overview=full&geometries=geojson`;
-    let res=await fetch(url); let data=await res.json();
-
-    if(routeLine) map.removeLayer(routeLine);
-    redMarkers.forEach(m=>map.removeLayer(m)); redMarkers=[];
-
-    routeLine=L.geoJSON(data.trips[0].geometry).addTo(map);
-    map.fitBounds(routeLine.getBounds());
-
-    selected.forEach(c=>{ let m=L.circleMarker([c.lat,c.lng],{radius:8,color:'red',fillColor:'red',fillOpacity:0.6}).addTo(map); redMarkers.push(m); });
-
-    rutasGuardadas[fecha]={ coords:coords, geojson:data.trips[0].geometry, clientes:selected.map(c=>c.id) };
-    renderRutasGuardadas();
+function renderClients(){
+  const div = document.getElementById('clientList');
+  div.innerHTML='';
+  markers.forEach(m=>map.removeLayer(m));
+  markers=[];
+  clients.forEach((c,i)=>{
+    let cdiv=document.createElement('div');
+    cdiv.className='client';
+    cdiv.innerHTML=`<input type="checkbox" id="c${i}"> <b>${c.name}</b><br>
+      <small>${c.address|| (c.lat?.toFixed(5)+', '+c.lng?.toFixed(5))}</small><br>
+      <small>📝 ${c.notes||''}</small><br>
+      <button class='deleteBtn' onclick='deleteClient(${i})'>🗑️ Borrar cliente</button>`;
+    div.appendChild(cdiv);
+    if(c.lat && c.lng){
+      let m = L.marker([c.lat,c.lng]).addTo(map).bindPopup(c.name);
+      markers.push(m);
+    }
   });
 }
 
-function renderRutasGuardadas(){
-  const container=document.getElementById('savedRoutes'); container.innerHTML='';
-  Object.keys(rutasGuardadas).sort().forEach(fecha=>{
-    let div=document.createElement('div'); div.style.marginBottom='6px';
-    div.innerHTML=`<button onclick='cargarRuta("${fecha}")'>📅 ${fecha}</button> <button class='deleteBtn' onclick='borrarRuta("${fecha}")'>🗑️</button>`;
-    container.appendChild(div);
+function renderSavedRoutes(){
+  const div = document.getElementById('savedRoutes');
+  div.innerHTML='';
+  Object.keys(routes).sort().forEach(date=>{
+    let btn = document.createElement('button');
+    btn.textContent=date;
+    btn.onclick=()=>loadRoute(date);
+    div.appendChild(btn);
+    let del = document.createElement('button');
+    del.textContent='🗑️';
+    del.style.width='30px';
+    del.style.margin='0 0 6px 6px';
+    del.onclick=(e)=>{ e.stopPropagation(); deleteRoute(date); };
+    div.appendChild(del);
+    div.appendChild(document.createElement('br'));
   });
 }
 
-function cargarRuta(fecha){
-  if(!rutasGuardadas[fecha]) return;
-  if(routeLine) map.removeLayer(routeLine);
+async function addClient(){
+  const name=document.getElementById('name').value.trim();
+  if(!name){ alert('Pon nombre'); return; }
+  const address=document.getElementById('address').value.trim();
+  const notes=document.getElementById('notes').value.trim();
+  const latInput=document.getElementById('lat').value.trim();
+  const lngInput=document.getElementById('lng').value.trim();
+  let lat,lng;
+  if(latInput && lngInput){
+    lat=parseFloat(latInput); lng=parseFloat(lngInput);
+  } else if(address){
+    const coords = await geocode(address);
+    if(!coords) { alert('No se encontró dirección'); return; }
+    lat=coords.lat; lng=coords.lng;
+  } else {
+    try{
+      const pos = await new Promise((resolve,reject)=> navigator.geolocation.getCurrentPosition(resolve,reject));
+      lat=pos.coords.latitude; lng=pos.coords.longitude;
+    } catch(err){
+      alert('No se pudo obtener ubicación'); return;
+    }
+  }
+  clients.push({name,address,notes,lat,lng});
+  saveClients();
+  renderClients();
+  document.getElementById('name').value='';
+  document.getElementById('address').value='';
+  document.getElementById('notes').value='';
+  document.getElementById('lat').value='';
+  document.getElementById('lng').value='';
+}
+
+function deleteClient(i){ if(confirm('Borrar cliente?')){ clients.splice(i,1); saveClients(); renderClients(); } }
+
+async function createRoute(){
+  const date = document.getElementById('routeDate').value;
+  if(!date){ alert('Selecciona fecha'); return; }
+  let originOption = prompt('Origen: escribe "actual" para tu ubicación o una dirección manual:','actual');
+  let originCoords;
+  if(originOption.toLowerCase()==='actual'){
+    try{
+      const pos = await new Promise((resolve,reject)=> navigator.geolocation.getCurrentPosition(resolve,reject));
+      originCoords=[pos.coords.latitude,pos.coords.longitude];
+    } catch(err){ alert('No se pudo obtener ubicación'); return; }
+  } else {
+    const coords = await geocode(originOption);
+    if(!coords){ alert('No se encontró la dirección'); return; }
+    originCoords=[coords.lat,coords.lng];
+  }
+  // Seleccionar clientes
+  let selectedClients = clients.filter((c,i)=>document.getElementById('c'+i)?.checked);
+  if(selectedClients.length<1){ alert('Selecciona clientes para la ruta'); return; }
+
+  let coords = [originCoords,...selectedClients.map(c=>[c.lat,c.lng])];
+  let coordString = coords.map(c=>c.reverse().join(',')).join(';'); // lon,lat para OSRM
+  let url = `https://router.project-osrm.org/trip/v1/driving/${coordString}?source=first&roundtrip=false&overview=full&geometries=geojson`;
+  let res = await fetch(url); let data = await res.json();
+  let geo = data.trips[0].geometry;
+
+  // Guardar ruta
+  routes[date]={clients:selectedClients.map(c=>c.name),geo};
+  saveRoutes();
+  renderSavedRoutes();
+  drawRoute(geo);
+}
+
+function drawRoute(geo){
+  if(routeLine){ map.removeLayer(routeLine); routeLine=null; }
   redMarkers.forEach(m=>map.removeLayer(m)); redMarkers=[];
-
-  const ruta=rutasGuardadas[fecha];
-  routeLine=L.geoJSON(ruta.geojson).addTo(map);
+  routeLine=L.geoJSON(geo).addTo(map);
   map.fitBounds(routeLine.getBounds());
-  ruta.coords.slice(1).forEach(c=>{ let m=L.circleMarker([c[1],c[0]],{radius:8,color:'red',fillColor:'red',fillOpacity:0.6}).addTo(map); redMarkers.push(m); });
+  // marcar clientes en rojo
+  let coords = routeLine.getLayers()[0].getLatLngs();
+  coords.forEach(c=>{
+    let m = L.circleMarker(c,{radius:6,color:'red',fillColor:'red',fillOpacity:0.6}).addTo(map);
+    redMarkers.push(m);
+  });
 }
 
-function borrarRuta(fecha){
-  if(!confirm('¿Borrar ruta de '+fecha+'?')) return;
-  if(routeLine) map.removeLayer(routeLine); routeLine=null;
-  redMarkers.forEach(m=>map.removeLayer(m)); redMarkers=[];
-  delete rutasGuardadas[fecha];
-  renderRutasGuardadas();
+function loadRoute(date){
+  let r = routes[date];
+  if(!r) return;
+  drawRoute(r.geo);
 }
 
-// EVENT LISTENERS
-document.getElementById('btnLogin').addEventListener('click',login);
+function deleteRoute(date){
+  if(confirm('Borrar esta ruta?')){ delete routes[date]; saveRoutes(); renderSavedRoutes(); if(routeLine){ map.removeLayer(routeLine); routeLine=null; } }
+}
+
+// Export/Import
+function exportData(){
+  const data = {clients,routes};
+  const blob = new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a = document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='backup.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function importData(){
+  const input=document.createElement('input'); input.type='file'; input.accept='.json';
+  input.onchange=e=>{
+    const file=input.files[0];
+    const reader=new FileReader();
+    reader.onload=()=>{
+      try{
+        const data=JSON.parse(reader.result);
+        if(data.clients) clients=data.clients;
+        if(data.routes) routes=data.routes;
+        saveClients(); saveRoutes(); renderClients(); renderSavedRoutes();
+        alert('Importación completada');
+      } catch(err){ alert('Error leyendo archivo'); }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+// === Event listeners ===
 document.getElementById('btnAddClient').addEventListener('click',addClient);
-document.getElementById('btnRoute').addEventListener('click',calculateRoute);
-document.getElementById('btnClearRoute').addEventListener('click',()=>{ if(routeLine) map.removeLayer(routeLine); redMarkers.forEach(m=>map.removeLayer(m)); routeLine=null; redMarkers=[]; });
+document.getElementById('btnCreateRoute').addEventListener('click',createRoute);
+document.getElementById('btnClearRoute').addEventListener('click',()=>{ if(routeLine){ map.removeLayer(routeLine); routeLine=null; } redMarkers.forEach(m=>map.removeLayer(m)); redMarkers=[]; });
+document.getElementById('btnExport').addEventListener('click',exportData);
+document.getElementById('btnImport').addEventListener('click',importData);
+
+// Inicializar
+renderClients();
+renderSavedRoutes();
 </script>
 </body>
 </html>
