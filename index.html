@@ -98,8 +98,8 @@ window.login = async function() {
   try{
     const userCredential = await signInWithEmailAndPassword(auth,email,pass);
     alert("Login exitoso: "+userCredential.user.email);
-    await cargarClientes();
-    await cargarRutas();
+    cargarClientes();
+    cargarRutas();
   }catch(err){ alert("Error login: "+err.message); }
 };
 
@@ -111,17 +111,17 @@ window.addClient = async function(){
   const latInput = document.getElementById('lat').value;
   const lngInput = document.getElementById('lng').value;
   if(!name) return alert("Pon nombre del cliente");
-
+  
   let lat,lng;
   if(latInput && lngInput){ lat=parseFloat(latInput); lng=parseFloat(lngInput); }
   else if(address){ const coords = await geocode(address); if(!coords) return alert("No se encontró dirección"); lat=coords.lat; lng=coords.lng; }
   else{ try{ const pos = await new Promise((r,j)=> navigator.geolocation.getCurrentPosition(r,j)); lat=pos.coords.latitude; lng=pos.coords.longitude; }catch(err){ return alert("No se pudo obtener ubicación"); } }
 
   await addDoc(coleccionClientes,{name,address,lat,lng,notes,visits:0});
-  await cargarClientes();
+  cargarClientes();
 };
 
-window.deleteClient = async function(id){ if(!confirm("Borrar cliente?")) return; await deleteDoc(doc(db,"clientes",id)); await cargarClientes(); };
+window.deleteClient = async function(id){ if(!confirm("Borrar cliente?")) return; await deleteDoc(doc(db,"clientes",id)); cargarClientes(); };
 
 // --- Rutas ---
 document.getElementById('startOption').addEventListener('change',e=>{ document.getElementById('startAddress').style.display=e.target.value==="manual"?"block":"none"; });
@@ -149,7 +149,7 @@ window.createRoute = async function(){
   // Guardar ruta en Firebase
   await addDoc(coleccionRutas,{date,clients:selectedClients.map(c=>c.id),start:{lat:startLat,lng:startLng}});
   alert("Ruta guardada");
-  await cargarRutas();
+  cargarRutas();
 
   drawRoute(coords);
 };
@@ -161,11 +161,9 @@ function drawRoute(coords){
   fetch(`https://router.project-osrm.org/trip/v1/driving/${coordStr}?source=first&roundtrip=false&overview=full&geometries=geojson`)
     .then(r=>r.json())
     .then(data=>{
-      if(data.trips && data.trips.length>0){
-        routeLine = L.geoJSON(data.trips[0].geometry).addTo(map);
-        map.fitBounds(routeLine.getBounds());
-        coords.slice(1).forEach(c=>{ let m=L.circleMarker(c,{radius:8,color:'red',fillColor:'red',fillOpacity:0.6}).addTo(map); redMarkers.push(m); });
-      }
+      routeLine = L.geoJSON(data.trips[0].geometry).addTo(map);
+      map.fitBounds(routeLine.getBounds());
+      coords.slice(1).forEach(c=>{ let m=L.circleMarker(c,{radius:8,color:'red',fillColor:'red',fillOpacity:0.6}).addTo(map); redMarkers.push(m); });
     });
 }
 
@@ -173,19 +171,19 @@ function drawRoute(coords){
 async function cargarRutas(){
   const snapshot = await getDocs(coleccionRutas);
   const rutas = snapshot.docs.map(d=>({...d.data(),id:d.id}));
-  rutas.sort((a,b)=>a.date.localeCompare(b.date));
   const container = document.getElementById('routeList');
   container.innerHTML="";
+  rutas.sort((a,b)=> (a.date||'').localeCompare(b.date||''));
   rutas.forEach(r=>{
-    let div=document.createElement('div'); div.className="routeItem";
+    let div = document.createElement('div'); div.className="routeItem";
     div.innerHTML=`${r.date} <button onclick="loadRoute('${r.id}')">🟢 Ver</button> <button onclick="deleteRoute('${r.id}')">🗑️</button>`;
     container.appendChild(div);
   });
 }
 
 window.loadRoute = async function(id){
-  const docSnap = await getDocs(coleccionRutas);
-  const routeDoc = docSnap.docs.find(d=>d.id===id);
+  const snapshot = await getDocs(coleccionRutas);
+  const routeDoc = snapshot.docs.find(d=>d.id===id);
   if(!routeDoc) return alert("Ruta no encontrada");
   const data = routeDoc.data();
   const selectedClients = clients.filter(c=>data.clients.includes(c.id));
@@ -194,7 +192,7 @@ window.loadRoute = async function(id){
   drawRoute(coords);
 };
 
-window.deleteRoute = async function(id){ if(!confirm("Borrar ruta?")) return; await deleteDoc(doc(db,"rutas",id)); await cargarRutas(); };
+window.deleteRoute = async function(id){ if(!confirm("Borrar ruta?")) return; await deleteDoc(doc(db,"rutas",id)); cargarRutas(); };
 
 // --- Google Maps / Waze ---
 window.openInGoogleMaps = function(){
@@ -215,7 +213,9 @@ window.clearRoute = function(){ if(routeLine) map.removeLayer(routeLine); routeL
 // --- Cargar clientes ---
 async function cargarClientes(){
   const snapshot = await getDocs(coleccionClientes);
-  clients = snapshot.docs.map(d=>({...d.data(),id:d.id}));
+  clients = snapshot.docs
+    .map(d=>({...d.data(),id:d.id}))
+    .filter(c=>c.name); // <-- protege contra undefined
   clients.sort((a,b)=>a.name.localeCompare(b.name));
   renderClientes();
 }
