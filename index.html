@@ -47,17 +47,16 @@ small { color:#555 }
 <div id="clientList"></div>
 </div>
 
+<script src="https://www.gstatic.com/firebasejs/10.3.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.3.0/firebase-firestore.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.3.0/firebase-auth.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-firestore.js";
-import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-auth.js";
-
+<script>
 const firebaseConfig = { apiKey:"AIzaSyALty_4SfeZUg6B6_dbcOeZvGYpnu4gYsE", authDomain:"rutas-56f86.firebaseapp.com", projectId:"rutas-56f86", storageBucket:"rutas-56f86.appspot.com", messagingSenderId:"1026881492897", appId:"1:1026881492897:web:fcb315b53fcf5e40e3dde0" };
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const auth = getAuth(app);
-const coleccionClientes = collection(db, "clientes");
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const auth = firebase.auth();
+const coleccionClientes = db.collection('clientes');
 
 let clients = [], markers = [], redMarkers = [], routeLine;
 let rutasGuardadas = {};
@@ -66,15 +65,16 @@ let map = L.map('map').setView([40.4168, -3.7038], 12);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
 
 // LOGIN
-window.login = async function(){
-  const correo = document.getElementById('email').value;
-  const contrasena = document.getElementById('password').value;
-  try{ await signInWithEmailAndPassword(auth, correo, contrasena); alert('Login exitoso'); cargarClientes(); }
-  catch(e){ alert('Error login: '+e.message); }
-};
+function login(){
+  const correo=document.getElementById('email').value;
+  const contrasena=document.getElementById('password').value;
+  auth.signInWithEmailAndPassword(correo, contrasena)
+    .then(user=>{ alert('Login exitoso: '+user.user.email); cargarClientes(); })
+    .catch(e=>alert('Error login: '+e.message));
+}
 
 // AGREGAR CLIENTE
-window.addClient = async function(){
+async function addClient(){
   const name=document.getElementById('name').value;
   const address=document.getElementById('address').value;
   const notes=document.getElementById('notes').value;
@@ -85,15 +85,15 @@ window.addClient = async function(){
   let lat,lng;
   if(latInput && lngInput){ lat=parseFloat(latInput); lng=parseFloat(lngInput); }
   else if(address){ const coords=await geocode(address); if(!coords) return alert('No se encontró dirección'); lat=coords.lat; lng=coords.lng; }
-  else{ try{ const pos=await new Promise((res,rej)=>navigator.geolocation.getCurrentPosition(res,rej)); lat=pos.coords.latitude; lng=pos.coords.longitude; }
-  catch(e){ return alert('No se pudo obtener ubicación'); } }
+  else{ try{ const pos=await new Promise((res,rej)=>navigator.geolocation.getCurrentPosition(res,rej)); lat=pos.coords.latitude; lng=pos.coords.longitude; } catch(e){ return alert('No se pudo obtener ubicación'); } }
 
-  await addDoc(coleccionClientes, {name,address,lat,lng,notes});
+  await coleccionClientes.add({name,address,lat,lng,notes});
   cargarClientes();
-};
+}
 
-// CARGAR CLIENTES\async function cargarClientes(){
-  const snapshot = await getDocs(coleccionClientes);
+// CARGAR CLIENTES
+async function cargarClientes(){
+  const snapshot = await coleccionClientes.get();
   clients = snapshot.docs.map(d=>({...d.data(), id:d.id}));
   renderClientes();
 }
@@ -111,14 +111,14 @@ function renderClientes(){
 
 // GEOCODING
 async function geocode(address){
-  let res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`);
-  let data = await res.json();
+  let res=await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`);
+  let data=await res.json();
   if(data.length>0) return {lat:parseFloat(data[0].lat), lng:parseFloat(data[0].lon)};
   return null;
 }
 
 // CALCULAR Y GUARDAR RUTA
-window.calculateRoute = async function(){
+function calculateRoute(){
   let selected=[];
   clients.forEach((c,i)=>{ if(document.getElementById('c'+i)?.checked) selected.push(c); });
   if(selected.length<1) return alert('Selecciona clientes');
@@ -128,7 +128,6 @@ window.calculateRoute = async function(){
 
   navigator.geolocation.getCurrentPosition(async pos=>{
     let coords=[[pos.coords.longitude,pos.coords.latitude],...selected.map(c=>[c.lng,c.lat])];
-
     let coordString=coords.map(c=>c.join(',')).join(';');
     let url=`https://router.project-osrm.org/trip/v1/driving/${coordString}?source=first&roundtrip=false&overview=full&geometries=geojson`;
     let res=await fetch(url); let data=await res.json();
@@ -139,17 +138,13 @@ window.calculateRoute = async function(){
     routeLine=L.geoJSON(data.trips[0].geometry).addTo(map);
     map.fitBounds(routeLine.getBounds());
 
-    selected.forEach(c=>{
-      let mRed=L.circleMarker([c.lat,c.lng],{radius:8,color:'red',fillColor:'red',fillOpacity:0.6}).addTo(map);
-      redMarkers.push(mRed);
-    });
+    selected.forEach(c=>{ let m=L.circleMarker([c.lat,c.lng],{radius:8,color:'red',fillColor:'red',fillOpacity:0.6}).addTo(map); redMarkers.push(m); });
 
     rutasGuardadas[fecha]={ coords:coords, geojson:data.trips[0].geometry, clientes:selected.map(c=>c.id) };
     renderRutasGuardadas();
   });
-};
+}
 
-// RENDER RUTAS GUARDADAS
 function renderRutasGuardadas(){
   const container=document.getElementById('savedRoutes'); container.innerHTML='';
   Object.keys(rutasGuardadas).sort().forEach(fecha=>{
@@ -167,11 +162,7 @@ function cargarRuta(fecha){
   const ruta=rutasGuardadas[fecha];
   routeLine=L.geoJSON(ruta.geojson).addTo(map);
   map.fitBounds(routeLine.getBounds());
-
-  ruta.coords.slice(1).forEach(c=>{
-    let mRed=L.circleMarker([c[1],c[0]],{radius:8,color:'red',fillColor:'red',fillOpacity:0.6}).addTo(map);
-    redMarkers.push(mRed);
-  });
+  ruta.coords.slice(1).forEach(c=>{ let m=L.circleMarker([c[1],c[0]],{radius:8,color:'red',fillColor:'red',fillOpacity:0.6}).addTo(map); redMarkers.push(m); });
 }
 
 function borrarRuta(fecha){
@@ -183,9 +174,9 @@ function borrarRuta(fecha){
 }
 
 // EVENT LISTENERS
-document.getElementById('btnLogin').addEventListener('click',window.login);
-document.getElementById('btnAddClient').addEventListener('click',window.addClient);
-document.getElementById('btnRoute').addEventListener('click',window.calculateRoute);
+document.getElementById('btnLogin').addEventListener('click',login);
+document.getElementById('btnAddClient').addEventListener('click',addClient);
+document.getElementById('btnRoute').addEventListener('click',calculateRoute);
 document.getElementById('btnClearRoute').addEventListener('click',()=>{ if(routeLine) map.removeLayer(routeLine); redMarkers.forEach(m=>map.removeLayer(m)); routeLine=null; redMarkers=[]; });
 </script>
 </body>
