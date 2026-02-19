@@ -82,6 +82,7 @@ const firebaseConfig = {
   appId: "1:1026881492897:web:fcb315b53fcf5e40e3dde0"
 };
 
+// Inicializar Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
@@ -94,6 +95,16 @@ let redMarkers = [];
 let routeLine;
 let lastRouteCoords = [];
 
+// Rutas por día
+let rutasPorDia = {
+  'Lunes': null,
+  'Martes': null,
+  'Miércoles': null,
+  'Jueves': null,
+  'Viernes': null
+};
+
+// Inicializar mapa
 let map = L.map('map').setView([40.4168, -3.7038], 12);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
 
@@ -143,18 +154,26 @@ window.addClient = async function() {
   cargarClientesDesdeFirestore();
 };
 
+// BORRAR CLIENTE
 window.deleteClient = async function(id) {
   if(!confirm('¿Seguro que quieres borrar este cliente?')) return;
   await deleteDoc(doc(db,"clientes",id));
   cargarClientesDesdeFirestore();
 };
 
-// BORRAR RUTA y marcadores rojos
-window.clearRoute = function(){
-  if(routeLine){ map.removeLayer(routeLine); routeLine=null; }
+// BORRAR RUTA DE UN DÍA
+function borrarRutaDia(dia){
+  if(routeLine){ map.removeLayer(routeLine); routeLine = null; }
   redMarkers.forEach(m=>map.removeLayer(m));
   redMarkers=[];
+  rutasPorDia[dia] = null;
   lastRouteCoords=[];
+}
+
+window.clearRoute = function(){
+  const dia = document.getElementById('filterDay').value;
+  if(dia==='Todos') return alert('Selecciona un día específico para borrar la ruta');
+  borrarRutaDia(dia);
 };
 
 // CALCULAR RUTA
@@ -170,26 +189,31 @@ window.calculateRoute = async function(){
     let coordString=coords.map(c=>c.join(',')).join(';');
     let url=`https://router.project-osrm.org/trip/v1/driving/${coordString}?source=first&roundtrip=false&overview=full&geometries=geojson`;
     let res=await fetch(url); let data=await res.json();
+
     if(routeLine) map.removeLayer(routeLine);
     routeLine=L.geoJSON(data.trips[0].geometry).addTo(map);
     map.fitBounds(routeLine.getBounds());
 
-    // Borra marcadores rojos previos
-    redMarkers.forEach(m => map.removeLayer(m));
-    redMarkers = [];
+    redMarkers.forEach(m=>map.removeLayer(m));
+    redMarkers=[];
 
-    // Añadir marcadores rojos a clientes seleccionados
     selected.forEach(c=>{
       let mRed = L.circleMarker([c.lat,c.lng], {radius:8, color:'red', fillColor:'red', fillOpacity:0.6}).addTo(map);
       redMarkers.push(mRed);
     });
+
+    // Guardar ruta por día
+    const dia = document.getElementById('filterDay').value;
+    if(dia !== 'Todos') {
+      rutasPorDia[dia] = { coords: coords, geojson: data.trips[0].geometry };
+    }
 
     selected.forEach(c=>c.visits=(c.visits||0)+1);
     cargarClientesDesdeFirestore();
   });
 };
 
-// Abrir rutas en Google Maps/Waze
+// ABRIR EN GOOGLE MAPS
 window.openInGoogleMaps = function(){
   if(lastRouteCoords.length<2) return alert('Calcula ruta primero');
   let origin = lastRouteCoords[0].slice().reverse().join(',');
@@ -197,13 +221,14 @@ window.openInGoogleMaps = function(){
   window.open(`https://www.google.com/maps/dir/?api=1&origin=${origin}&waypoints=${waypoints}`,'_blank');
 };
 
+// ABRIR EN WAZE
 window.openInWaze = function(){
   if(lastRouteCoords.length<2) return alert('Calcula ruta primero');
   let dest = lastRouteCoords[lastRouteCoords.length-1].slice().reverse().join(',');
   window.open(`https://waze.com/ul?ll=${dest}&navigate=yes`,'_blank');
 };
 
-// Export/Import clientes
+// EXPORTAR CLIENTES
 window.exportClients = function(){
   const dataStr = JSON.stringify(clients, null, 2);
   const blob = new Blob([dataStr], {type:'application/json'});
@@ -215,6 +240,7 @@ window.exportClients = function(){
   URL.revokeObjectURL(url);
 };
 
+// IMPORTAR CLIENTES
 window.importClients = function(){
   const input = document.createElement('input');
   input.type='file'; input.accept='.json';
@@ -238,7 +264,7 @@ window.importClients = function(){
   input.click();
 };
 
-// CARGAR CLIENTES desde Firestore
+// CARGAR CLIENTES DESDE FIRESTORE
 async function cargarClientesDesdeFirestore() {
   const snapshot = await getDocs(coleccionClientes);
   clients = snapshot.docs.map(doc => ({...doc.data(), id: doc.id}));
@@ -256,7 +282,7 @@ function render(){
   const filtered = clients
     .map((c,i)=>({...c,_idx:i}))
     .filter(c=> filter==='Todos' || c.day===filter)
-    .sort((a,b)=>a.name.localeCompare(b.name)); // orden alfabético
+    .sort((a,b)=>a.name.localeCompare(b.name));
 
   filtered.forEach(c=>{
     let div=document.createElement('div'); div.className='client';
@@ -280,7 +306,7 @@ function render(){
   document.getElementById('stats').innerHTML=`Clientes totales: ${clients.length}<br>Total visitas: ${totalVisits}`;
 }
 
-// GEOCODING con Nominatim
+// GEOCODING
 async function geocode(address){
   let res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`);
   let data = await res.json();
@@ -288,7 +314,7 @@ async function geocode(address){
   return null;
 }
 
-// Event listeners
+// EVENT LISTENERS
 document.getElementById('btnLogin').addEventListener('click', window.login);
 document.getElementById('btnAddClient').addEventListener('click', window.addClient);
 document.getElementById('btnRoute').addEventListener('click', window.calculateRoute);
@@ -297,7 +323,6 @@ document.getElementById('btnWaze').addEventListener('click', window.openInWaze);
 document.getElementById('btnExport').addEventListener('click', window.exportClients);
 document.getElementById('btnImport').addEventListener('click', window.importClients);
 document.getElementById('btnClearRoute').addEventListener('click', window.clearRoute);
-document.getElementById('filterDay').addEventListener('change', render);
 </script>
 </body>
 </html>
