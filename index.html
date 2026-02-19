@@ -8,10 +8,10 @@
 <style>
   body { margin:0; font-family: system-ui, Arial; display:flex; height:100vh }
   #map { flex:1 }
-  #panel { width:350px; padding:12px; overflow:auto; background:#f7f7f7; border-left:1px solid #ddd }
+  #panel { width:400px; padding:12px; overflow:auto; background:#f7f7f7; border-left:1px solid #ddd }
   button { width:100%; padding:10px; margin:6px 0; border-radius:10px; border:none; background:#0ea5e9; color:white; font-weight:600; cursor:pointer }
   button:hover { background:#0284c7 }
-  .client { padding:8px; border-bottom:1px solid #ddd }
+  .client, .routeItem { padding:8px; border-bottom:1px solid #ddd }
   .deleteBtn{background:#ef4444;margin-top:6px}
   .deleteBtn:hover{background:#dc2626}
   input, select, textarea { width:100%; margin:4px 0; padding:6px; border-radius:6px; border:1px solid #ccc }
@@ -37,23 +37,28 @@
   <hr>
 
   <h3>Rutas</h3>
+  <label>Fecha de la ruta:</label>
+  <input type="date" id="routeDate" />
   <button id="btnRoute">🧭 Crear nueva ruta</button>
   <button id="btnGoogleMaps">🗺 Abrir en Google Maps</button>
   <button id="btnWaze">🚗 Abrir en Waze</button>
   <button id="btnClearRoute">🧹 Borrar ruta y marcadores rojos</button>
-  <hr>
 
-  <h3>Listado</h3>
+  <h4>Rutas guardadas</h4>
+  <div id="routeList"></div>
+
+  <hr>
+  <h3>Listado de clientes</h3>
   <div id="clientList"></div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, query, where } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-auth.js";
 
-// Config Firebase
+// Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyALty_4SfeZUg6B6_dbcOeZvGYpnu4gYsE",
   authDomain: "rutas-56f86.firebaseapp.com",
@@ -62,11 +67,11 @@ const firebaseConfig = {
   messagingSenderId: "1026881492897",
   appId: "1:1026881492897:web:fcb315b53fcf5e40e3dde0"
 };
-
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 const coleccionClientes = collection(db, "clientes");
+const coleccionRutas = collection(db, "rutas");
 
 let clients = [];
 let markers = [];
@@ -85,12 +90,13 @@ window.login = async function() {
     const userCredential = await signInWithEmailAndPassword(auth, correo, contrasena);
     alert('Login exitoso: ' + userCredential.user.email);
     cargarClientesDesdeFirestore();
+    cargarRutas();
   } catch (error) {
     alert('Error al iniciar sesión: ' + error.message);
   }
 };
 
-// AGREGAR CLIENTE
+// CLIENTES
 window.addClient = async function() {
   const name = document.getElementById('name').value;
   const address = document.getElementById('address').value;
@@ -122,14 +128,13 @@ window.addClient = async function() {
   cargarClientesDesdeFirestore();
 };
 
-// BORRAR CLIENTE
 window.deleteClient = async function(id) {
   if(!confirm('¿Seguro que quieres borrar este cliente?')) return;
   await deleteDoc(doc(db,"clientes",id));
   cargarClientesDesdeFirestore();
 };
 
-// BORRAR RUTA y marcadores rojos
+// RUTAS
 window.clearRoute = function(){
   if(routeLine){ map.removeLayer(routeLine); routeLine=null; }
   redMarkers.forEach(m=>map.removeLayer(m));
@@ -137,13 +142,14 @@ window.clearRoute = function(){
   lastRouteCoords=[];
 };
 
-// CREAR RUTA NUEVA
 window.calculateRoute = async function(){
+  const date = document.getElementById('routeDate').value;
+  if(!date) return alert('Selecciona la fecha de la ruta');
+
   let selected=[];
   clients.forEach((c,i)=>{ if(document.getElementById('c'+i)?.checked) selected.push(c); });
   if(selected.length<1) return alert('Selecciona clientes');
 
-  // Pregunta origen
   let origenManual = confirm("¿Quieres introducir manualmente la dirección de origen?\nAceptar: manual\nCancelar: mi ubicación");
   let origenLat, origenLng;
 
@@ -174,7 +180,6 @@ window.calculateRoute = async function(){
   routeLine=L.geoJSON(data.trips[0].geometry).addTo(map);
   map.fitBounds(routeLine.getBounds());
 
-  // Marcadores rojos
   redMarkers.forEach(m => map.removeLayer(m));
   redMarkers = [];
   selected.forEach(c=>{
@@ -182,10 +187,14 @@ window.calculateRoute = async function(){
     redMarkers.push(mRed);
   });
   selected.forEach(c=>c.visits=(c.visits||0)+1);
+
+  // Guardar ruta en Firestore
+  await addDoc(coleccionRutas, {date, clients:selected.map(c=>c.id), coords:lastRouteCoords});
   render();
+  cargarRutas();
 };
 
-// Abrir rutas en Google Maps/Waze
+// Abrir rutas
 window.openInGoogleMaps = function(){
   if(lastRouteCoords.length<2) return alert('Calcula ruta primero');
   let origin = lastRouteCoords[0].slice().reverse().join(',');
@@ -198,34 +207,28 @@ window.openInWaze = function(){
   window.open(`https://waze.com/ul?ll=${dest}&navigate=yes`,'_blank');
 };
 
-// CARGAR CLIENTES desde Firestore
+// Cargar clientes
 async function cargarClientesDesdeFirestore() {
   const snapshot = await getDocs(coleccionClientes);
   clients = snapshot.docs.map(doc => ({...doc.data(), id: doc.id}));
-  render();
+  renderClients();
 }
 
-// RENDER CLIENTES
-function render(){
+function renderClients(){
   document.getElementById('clientList').innerHTML='';
   markers.forEach(m=>map.removeLayer(m));
   markers=[];
 
-  const filtered = clients
-    .map((c,i)=>({...c,_idx:i}))
-    .sort((a,b)=>a.name.localeCompare(b.name));
-
-  filtered.forEach(c=>{
-    let div=document.createElement('div'); div.className='client';
-    div.innerHTML=`
-      <input type=checkbox id=c${c._idx}> <b>${c.name}</b><br>
-      <small>${c.address|| (c.lat?.toFixed(5)+', '+c.lng?.toFixed(5))}</small><br>
+  clients.forEach((c,i)=>{
+    let div = document.createElement('div'); div.className='client';
+    div.innerHTML = `
+      <input type=checkbox id=c${i}> <b>${c.name}</b><br>
+      <small>${c.address || (c.lat?.toFixed(5)+', '+c.lng?.toFixed(5))}</small><br>
       <small>📝 ${c.notes||''}</small><br>
       <small>Visitas: ${c.visits||0}</small>
       <button class='deleteBtn' onclick='deleteClient("${c.id}")'>🗑️ Borrar cliente</button>
     `;
     document.getElementById('clientList').appendChild(div);
-
     if(c.lat && c.lng){
       let m=L.marker([c.lat,c.lng]).addTo(map).bindPopup(c.name);
       markers.push(m);
@@ -233,12 +236,42 @@ function render(){
   });
 }
 
-// GEOCODING Nominatim
+// GEOCODING
 async function geocode(address){
   let res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`);
   let data = await res.json();
   if(data.length>0) return {lat:parseFloat(data[0].lat), lng:parseFloat(data[0].lon)};
   return null;
+}
+
+// RUTAS GUARDADAS
+async function cargarRutas(){
+  const snapshot = await getDocs(coleccionRutas);
+  const rutas = snapshot.docs.map(doc => ({...doc.data(), id:doc.id}));
+  const container = document.getElementById('routeList');
+  container.innerHTML='';
+  rutas.sort((a,b)=>a.date.localeCompare(b.date)).forEach(r=>{
+    const div = document.createElement('div'); div.className='routeItem';
+    div.innerHTML = `
+      <b>${r.date}</b> - Clientes: ${r.clients.length}
+      <button class='deleteBtn' onclick='borrarRuta("${r.id}")'>🗑️ Borrar</button>
+    `;
+    div.onclick = async ()=>{
+      // Cargar ruta en mapa
+      if(routeLine){ map.removeLayer(routeLine); routeLine=null; }
+      redMarkers.forEach(m=>map.removeLayer(m)); redMarkers=[];
+      lastRouteCoords = r.coords;
+      routeLine=L.geoJSON({type:"LineString", coordinates:r.coords}).addTo(map);
+      map.fitBounds(routeLine.getBounds());
+    };
+    container.appendChild(div);
+  });
+}
+
+window.borrarRuta = async function(id){
+  if(!confirm('Borrar esta ruta?')) return;
+  await deleteDoc(doc(db,"rutas",id));
+  cargarRutas();
 }
 
 // Event listeners
@@ -248,6 +281,7 @@ document.getElementById('btnRoute').addEventListener('click', window.calculateRo
 document.getElementById('btnGoogleMaps').addEventListener('click', window.openInGoogleMaps);
 document.getElementById('btnWaze').addEventListener('click', window.openInWaze);
 document.getElementById('btnClearRoute').addEventListener('click', window.clearRoute);
+
 </script>
 </body>
 </html>
