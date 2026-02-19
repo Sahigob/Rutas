@@ -72,7 +72,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.3.0/firebas
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-auth.js";
 
-// Configuración Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyALty_4SfeZUg6B6_dbcOeZvGYpnu4gYsE",
   authDomain: "rutas-56f86.firebaseapp.com",
@@ -82,7 +81,6 @@ const firebaseConfig = {
   appId: "1:1026881492897:web:fcb315b53fcf5e40e3dde0"
 };
 
-// Inicializar Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
@@ -94,17 +92,8 @@ let markers = [];
 let redMarkers = [];
 let routeLine;
 let lastRouteCoords = [];
+let rutasPorDia = { 'Lunes': null, 'Martes': null, 'Miércoles': null, 'Jueves': null, 'Viernes': null };
 
-// Rutas por día
-let rutasPorDia = {
-  'Lunes': null,
-  'Martes': null,
-  'Miércoles': null,
-  'Jueves': null,
-  'Viernes': null
-};
-
-// Inicializar mapa
 let map = L.map('map').setView([40.4168, -3.7038], 12);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
 
@@ -202,7 +191,6 @@ window.calculateRoute = async function(){
       redMarkers.push(mRed);
     });
 
-    // Guardar ruta por día
     const dia = document.getElementById('filterDay').value;
     if(dia !== 'Todos') {
       rutasPorDia[dia] = { coords: coords, geojson: data.trips[0].geometry };
@@ -264,7 +252,7 @@ window.importClients = function(){
   input.click();
 };
 
-// CARGAR CLIENTES DESDE FIRESTORE
+// CARGAR CLIENTES
 async function cargarClientesDesdeFirestore() {
   const snapshot = await getDocs(coleccionClientes);
   clients = snapshot.docs.map(doc => ({...doc.data(), id: doc.id}));
@@ -304,6 +292,26 @@ function render(){
 
   let totalVisits = clients.reduce((sum,c)=>sum+(c.visits||0),0);
   document.getElementById('stats').innerHTML=`Clientes totales: ${clients.length}<br>Total visitas: ${totalVisits}`;
+
+  // Cargar ruta del día seleccionado automáticamente
+  if(filter !== 'Todos'){
+    if(routeLine){ map.removeLayer(routeLine); routeLine=null; }
+    redMarkers.forEach(m=>map.removeLayer(m));
+    redMarkers=[];
+
+    const ruta = rutasPorDia[filter];
+    if(ruta){
+      routeLine = L.geoJSON(ruta.geojson).addTo(map);
+      map.fitBounds(routeLine.getBounds());
+      ruta.coords.slice(1).forEach(c => {
+        let mRed = L.circleMarker([c[1], c[0]], {radius:8, color:'red', fillColor:'red', fillOpacity:0.6}).addTo(map);
+        redMarkers.push(mRed);
+      });
+      lastRouteCoords = ruta.coords;
+    } else {
+      lastRouteCoords = [];
+    }
+  }
 }
 
 // GEOCODING
@@ -323,6 +331,7 @@ document.getElementById('btnWaze').addEventListener('click', window.openInWaze);
 document.getElementById('btnExport').addEventListener('click', window.exportClients);
 document.getElementById('btnImport').addEventListener('click', window.importClients);
 document.getElementById('btnClearRoute').addEventListener('click', window.clearRoute);
+document.getElementById('filterDay').addEventListener('change', render);
 </script>
 </body>
 </html>
