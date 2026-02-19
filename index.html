@@ -3,19 +3,47 @@
 <head>
 <meta charset="utf-8" />
 <title>Rutas Comerciales PRO</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
-body { margin:0; font-family: system-ui, Arial; display:flex; height:100vh; }
-#map { flex:1 }
-#panel { width:380px; padding:12px; overflow:auto; background:#f7f7f7; border-left:1px solid #ddd }
-button { width:100%; padding:10px; margin:6px 0; border-radius:10px; border:none; background:#0ea5e9; color:white; font-weight:600; cursor:pointer }
-button:hover { background:#0284c7 }
-.client, .routeItem { padding:8px; border-bottom:1px solid #ddd }
-.deleteBtn{background:#ef4444;margin-top:6px}
-.deleteBtn:hover{background:#dc2626}
-input, select, textarea { width:100%; margin:4px 0; padding:6px; border-radius:6px; border:1px solid #ccc }
-small { color:#555 }
+/* Reset y Base */
+body { margin:0; font-family: system-ui, -apple-system, Arial; display:flex; flex-direction: row; height:100vh; background:#f7f7f7; }
+
+/* Contenedores principales */
+#map { flex:1; height: 100%; min-height: 300px; }
+#panel { width:380px; padding:16px; overflow-y:auto; background:#f7f7f7; border-left:1px solid #ddd; box-sizing: border-box; }
+
+/* Adaptación para Móvil */
+@media (max-width: 768px) {
+    body { flex-direction: column; }
+    #map { flex: none; height: 40vh; } /* El mapa ocupa el 40% de la pantalla */
+    #panel { width: 100%; flex: 1; border-left: none; border-top: 2px solid #ddd; }
+}
+
+/* UI Elements */
+h3 { margin-top: 20px; color: #333; border-bottom: 2px solid #0ea5e9; padding-bottom: 5px; }
+button { width:100%; padding:12px; margin:8px 0; border-radius:10px; border:none; background:#0ea5e9; color:white; font-weight:600; cursor:pointer; font-size: 16px; transition: background 0.2s; }
+button:active { background:#0284c7; transform: scale(0.98); }
+.client, .routeItem { padding:12px; border-bottom:1px solid #ddd; background: white; margin-bottom: 5px; border-radius: 8px; }
+.deleteBtn { background:#ef4444; margin-top:8px; }
+.deleteBtn:active { background:#dc2626; }
+
+/* Inputs grandes para dedos */
+input, select, textarea { 
+    width:100%; 
+    margin:6px 0; 
+    padding:12px; 
+    border-radius:8px; 
+    border:1px solid #ccc; 
+    box-sizing: border-box; 
+    font-size: 16px; /* Evita el zoom automático en iOS */
+}
+hr { border: 0; border-top: 1px solid #eee; margin: 20px 0; }
+small { color:#666; display: block; margin-top: 4px; line-height: 1.4; }
+label { font-weight: bold; font-size: 14px; color: #444; }
+
+/* Ajuste específico para checkbox */
+input[type="checkbox"] { width: auto; transform: scale(1.4); margin-right: 10px; }
 </style>
 </head>
 <body>
@@ -31,7 +59,7 @@ small { color:#555 }
 <h3>Clientes</h3>
 <input id="name" placeholder="Nombre cliente" />
 <input id="address" placeholder="Dirección manual (opcional)" />
-<textarea id="notes" placeholder="Notas"></textarea>
+<textarea id="notes" placeholder="Notas" rows="2"></textarea>
 <input id="lat" placeholder="Latitud (opcional)" />
 <input id="lng" placeholder="Longitud (opcional)" />
 <button id="btnAddClient">➕ Guardar cliente</button>
@@ -52,12 +80,12 @@ small { color:#555 }
 <div id="routeList"></div>
 <hr>
 
-<button id="btnGoogleMaps">🗺 Abrir en Google Maps</button>
-<button id="btnWaze">🚗 Abrir en Waze</button>
-<button id="btnClearRoute">🧹 Borrar ruta y marcadores</button>
+<button id="btnGoogleMaps" style="background: #34a853;">🗺 Abrir en Google Maps</button>
+<button id="btnWaze" style="background: #33ccff;">🚗 Abrir en Waze</button>
+<button id="btnClearRoute" style="background: #6b7280;">🧹 Borrar ruta y marcadores</button>
 
 <h3>Estadísticas</h3>
-<div id="stats"></div>
+<div id="stats" style="font-weight: bold; color: #0ea5e9;"></div>
 
 <h3>Listado de clientes</h3>
 <div id="clientList"></div>
@@ -70,7 +98,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.3.0/firebas
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-auth.js";
 
-// --- Firebase config ---
 const firebaseConfig = {
   apiKey: "AIzaSyALty_4SfeZUg6B6_dbcOeZvGYpnu4gYsE",
   authDomain: "rutas-56f86.firebaseapp.com",
@@ -87,11 +114,9 @@ const coleccionRutas = collection(db,"rutas");
 
 let clients=[], markers=[], redMarkers=[], routeLine, lastRouteCoords=[];
 
-// --- Leaflet ---
 let map = L.map('map').setView([40.4168,-3.7038],12);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
 
-// --- Login ---
 window.login = async function() {
   const email = document.getElementById('email').value;
   const pass = document.getElementById('password').value;
@@ -103,7 +128,6 @@ window.login = async function() {
   }catch(err){ alert("Error login: "+err.message); }
 };
 
-// --- Clientes ---
 window.addClient = async function(){
   const name = document.getElementById('name').value.trim();
   const address = document.getElementById('address').value.trim();
@@ -123,7 +147,6 @@ window.addClient = async function(){
 
 window.deleteClient = async function(id){ if(!confirm("Borrar cliente?")) return; await deleteDoc(doc(db,"clientes",id)); cargarClientes(); };
 
-// --- Rutas ---
 document.getElementById('startOption').addEventListener('change',e=>{ document.getElementById('startAddress').style.display=e.target.value==="manual"?"block":"none"; });
 
 window.createRoute = async function(){
@@ -146,7 +169,6 @@ window.createRoute = async function(){
   let coords=[[startLat,startLng], ...selectedClients.map(c=>[c.lat,c.lng])];
   lastRouteCoords = coords;
 
-  // Guardar ruta en Firebase
   await addDoc(coleccionRutas,{date,clients:selectedClients.map(c=>c.id),start:{lat:startLat,lng:startLng}});
   alert("Ruta guardada");
   cargarRutas();
@@ -167,7 +189,6 @@ function drawRoute(coords){
     });
 }
 
-// --- Lista rutas guardadas ---
 async function cargarRutas(){
   const snapshot = await getDocs(coleccionRutas);
   const rutas = snapshot.docs.map(d=>({...d.data(),id:d.id}));
@@ -176,7 +197,7 @@ async function cargarRutas(){
   rutas.sort((a,b)=> (a.date||'').localeCompare(b.date||''));
   rutas.forEach(r=>{
     let div = document.createElement('div'); div.className="routeItem";
-    div.innerHTML=`${r.date} <button onclick="loadRoute('${r.id}')">🟢 Ver</button> <button onclick="deleteRoute('${r.id}')">🗑️</button>`;
+    div.innerHTML=`${r.date} <button onclick="loadRoute('${r.id}')" style="width:auto; padding:5px 10px; margin-left:10px">🟢 Ver</button> <button onclick="deleteRoute('${r.id}')" style="width:auto; padding:5px 10px; background:#666">🗑️</button>`;
     container.appendChild(div);
   });
 }
@@ -190,16 +211,16 @@ window.loadRoute = async function(id){
   let coords=[[data.start.lat,data.start.lng], ...selectedClients.map(c=>[c.lat,c.lng])];
   lastRouteCoords = coords;
   drawRoute(coords);
+  if(window.innerWidth < 768) document.getElementById('map').scrollIntoView({behavior: 'smooth'});
 };
 
 window.deleteRoute = async function(id){ if(!confirm("Borrar ruta?")) return; await deleteDoc(doc(db,"rutas",id)); cargarRutas(); };
 
-// --- Google Maps / Waze ---
 window.openInGoogleMaps = function(){
   if(lastRouteCoords.length<2) return alert("Calcula ruta primero");
   let origin=lastRouteCoords[0].join(',');
   let waypoints=lastRouteCoords.slice(1).map(c=>c.join(',')).join('|');
-  window.open(`https://www.google.com/maps/dir/?api=1&origin=${origin}&waypoints=${waypoints}`,'_blank');
+  window.open(`https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${lastRouteCoords[lastRouteCoords.length-1].join(',')}&waypoints=${waypoints}`,'_blank');
 };
 window.openInWaze = function(){
   if(lastRouteCoords.length<2) return alert("Calcula ruta primero");
@@ -207,15 +228,13 @@ window.openInWaze = function(){
   window.open(`https://waze.com/ul?ll=${dest}&navigate=yes`,'_blank');
 };
 
-// --- Clear ---
 window.clearRoute = function(){ if(routeLine) map.removeLayer(routeLine); routeLine=null; redMarkers.forEach(m=>map.removeLayer(m)); redMarkers=[]; lastRouteCoords=[]; };
 
-// --- Cargar clientes ---
 async function cargarClientes(){
   const snapshot = await getDocs(coleccionClientes);
   clients = snapshot.docs
     .map(d=>({...d.data(),id:d.id}))
-    .filter(c=>c.name); // <-- protege contra undefined
+    .filter(c=>c.name);
   clients.sort((a,b)=>a.name.localeCompare(b.name));
   renderClientes();
 }
@@ -235,7 +254,6 @@ function renderClientes(){
   document.getElementById('stats').innerHTML=`Clientes totales: ${clients.length}`;
 }
 
-// --- Geocode ---
 async function geocode(addr){
   let res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr)}`);
   let data = await res.json();
@@ -243,7 +261,6 @@ async function geocode(addr){
   return null;
 }
 
-// --- Event listeners ---
 document.getElementById('btnLogin').addEventListener('click',login);
 document.getElementById('btnAddClient').addEventListener('click',addClient);
 document.getElementById('btnCreateRoute').addEventListener('click',createRoute);
