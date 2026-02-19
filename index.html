@@ -1,53 +1,63 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="utf-8" />
-  <title>Rutas Comerciales PRO</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <style>
-    body { margin:0; font-family: system-ui, Arial; display:flex; height:100vh }
-    #map { flex:1 }
-    #panel { width:400px; padding:12px; overflow:auto; background:#f7f7f7; border-left:1px solid #ddd }
-    button { width:100%; padding:10px; margin:6px 0; border-radius:10px; border:none; background:#0ea5e9; color:white; font-weight:600; cursor:pointer }
-    button:hover { background:#0284c7 }
-    .deleteBtn{background:#ef4444;margin-top:6px}
-    .deleteBtn:hover{background:#dc2626}
-    input, select, textarea { width:100%; margin:4px 0; padding:6px; border-radius:6px; border:1px solid #ccc }
-    small { color:#555 }
-    .routeItem{padding:6px; border-bottom:1px solid #ccc; margin-bottom:4px;}
-  </style>
+<meta charset="utf-8" />
+<title>Rutas Comerciales PRO</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+body { margin:0; font-family: system-ui, Arial; display:flex; height:100vh }
+#map { flex:1 }
+#panel { width:400px; padding:12px; overflow:auto; background:#f7f7f7; border-left:1px solid #ddd }
+button { width:100%; padding:10px; margin:6px 0; border-radius:10px; border:none; background:#0ea5e9; color:white; font-weight:600; cursor:pointer }
+button:hover { background:#0284c7 }
+.client, .routeItem { padding:8px; border-bottom:1px solid #ddd }
+.deleteBtn{background:#ef4444;margin-top:6px}
+.deleteBtn:hover{background:#dc2626}
+input, select, textarea { width:100%; margin:4px 0; padding:6px; border-radius:6px; border:1px solid #ccc }
+small { color:#555 }
+</style>
 </head>
 <body>
-  <div id="map"></div>
-  <div id="panel">
-    <h3>Login</h3>
-    <input id="email" placeholder="Correo" />
-    <input id="password" type="password" placeholder="Contraseña" />
-    <button id="btnLogin">🔑 Iniciar sesión</button>
-    <hr>
+<div id="map"></div>
+<div id="panel">
+<h3>Login</h3>
+<input id="email" placeholder="Correo" />
+<input id="password" type="password" placeholder="Contraseña" />
+<button id="btnLogin">🔑 Iniciar sesión</button>
+<hr>
 
-    <h3>Clientes</h3>
-    <input id="name" placeholder="Nombre cliente" />
-    <input id="address" placeholder="Dirección manual (opcional)" />
-    <textarea id="notes" placeholder="Notas"></textarea>
-    <input id="lat" placeholder="Latitud (opcional)" />
-    <input id="lng" placeholder="Longitud (opcional)" />
-    <button id="btnAddClient">➕ Guardar cliente</button>
-    <button id="btnExport">💾 Exportar clientes</button>
-    <button id="btnImport">📂 Importar clientes</button>
+<h3>Clientes</h3>
+<input id="name" placeholder="Nombre cliente" />
+<input id="address" placeholder="Dirección manual (opcional)" />
+<textarea id="notes" placeholder="Notas"></textarea>
+<input id="lat" placeholder="Latitud (opcional)" />
+<input id="lng" placeholder="Longitud (opcional)" />
+<button id="btnAddClient">➕ Guardar cliente</button>
+<hr>
 
-    <h3>Rutas</h3>
-    <button id="btnRoute">🧭 Crear nueva ruta</button>
-    <button id="btnClearRoute">🧹 Borrar ruta y marcadores rojos</button>
-    <div id="routeList"></div>
+<h3>Crear Ruta</h3>
+<label>Fecha:</label>
+<input type="date" id="routeDate" />
+<label>Ubicación de salida:</label>
+<select id="startOption">
+<option value="current">Desde mi ubicación</option>
+<option value="manual">Ingresar dirección</option>
+</select>
+<input id="startAddress" placeholder="Dirección de salida" style="display:none" />
+<button id="btnCreateRoute">🧭 Crear y guardar ruta</button>
+<hr>
 
-    <h3>Estadísticas</h3>
-    <div id="stats"></div>
+<h3>Rutas Guardadas</h3>
+<div id="routeList"></div>
+<hr>
 
-    <h3>Listado de Clientes</h3>
-    <div id="clientList"></div>
-  </div>
+<h3>Estadísticas</h3>
+<div id="stats"></div>
+
+<h3>Listado Clientes</h3>
+<div id="clientList"></div>
+</div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script type="module">
@@ -55,7 +65,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.3.0/firebas
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-auth.js";
 
-// Firebase config
+// Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyALty_4SfeZUg6B6_dbcOeZvGYpnu4gYsE",
   authDomain: "rutas-56f86.firebaseapp.com",
@@ -64,245 +74,159 @@ const firebaseConfig = {
   messagingSenderId: "1026881492897",
   appId: "1:1026881492897:web:fcb315b53fcf5e40e3dde0"
 };
-
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
-const coleccionClientes = collection(db, "clientes");
-const coleccionRutas = collection(db, "rutas");
+const coleccionClientes = collection(db,"clientes");
+const coleccionRutas = collection(db,"rutas");
 
-let clients = [];
-let markers = [];
-let redMarkers = [];
-let routeLine;
-let lastRouteCoords = [];
+window.clients=[]; let markers=[]; let redMarkers=[]; let routeLine=null; let lastRouteCoords=[];
 
-let map = L.map('map').setView([40.4168,-3.7038],12);
+// MAPA
+let map = L.map('map').setView([40.4168, -3.7038], 12);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
 
-// --- LOGIN ---
-window.login = async function() {
-  const email = document.getElementById('email').value;
-  const pass = document.getElementById('password').value;
-  try{
-    const userCredential = await signInWithEmailAndPassword(auth,email,pass);
-    alert("Login correcto: "+userCredential.user.email);
+// LOGIN
+window.login = async function(){
+  const correo = document.getElementById('email').value;
+  const contrasena = document.getElementById('password').value;
+  try {
+    const userCredential = await signInWithEmailAndPassword(auth, correo, contrasena);
+    alert("Login exitoso: "+userCredential.user.email);
     await cargarClientes();
     await cargarRutas();
-  }catch(err){
-    alert("Error login: "+err.message);
-  }
+  } catch(e){ alert("Error login: "+e.message); }
 };
 
-// --- CLIENTES ---
-async function cargarClientes(){
-  const snapshot = await getDocs(coleccionClientes);
-  clients = snapshot.docs.map(d=>({...d.data(),id:d.id}));
-  clients.sort((a,b)=>a.name.localeCompare(b.name));
-  renderClientes();
-}
-
+// CLIENTES
 window.addClient = async function(){
-  const name = document.getElementById('name').value;
-  const address = document.getElementById('address').value;
-  const notes = document.getElementById('notes').value;
-  const latInput = document.getElementById('lat').value;
-  const lngInput = document.getElementById('lng').value;
+  const name=document.getElementById('name').value;
   if(!name) return alert("Pon nombre del cliente");
-
+  const address=document.getElementById('address').value;
+  const notes=document.getElementById('notes').value;
+  const latInput=document.getElementById('lat').value;
+  const lngInput=document.getElementById('lng').value;
   let lat,lng;
-  if(latInput && lngInput){
-    lat=parseFloat(latInput); lng=parseFloat(lngInput);
-  } else if(address){
-    const coords = await geocode(address);
-    if(!coords) return alert("No se encontró dirección");
-    lat=coords.lat; lng=coords.lng;
-  } else {
-    try{
-      const pos = await new Promise((resolve,reject)=> navigator.geolocation.getCurrentPosition(resolve,reject));
-      lat=pos.coords.latitude; lng=pos.coords.longitude;
-    }catch(err){
-      return alert("No se pudo obtener ubicación");
-    }
-  }
+
+  if(latInput && lngInput){ lat=parseFloat(latInput); lng=parseFloat(lngInput);}
+  else if(address){ const c=await geocode(address); if(!c) return alert("No se encontró dirección"); lat=c.lat; lng=c.lng; }
+  else{ try{ const pos=await new Promise((res,rej)=>navigator.geolocation.getCurrentPosition(res,rej)); lat=pos.coords.latitude; lng=pos.coords.longitude;} catch(e){return alert("No se pudo obtener ubicación");} }
 
   await addDoc(coleccionClientes,{name,address,lat,lng,notes,visits:0});
   await cargarClientes();
+};
+
+window.deleteClient = async function(id){ if(!confirm("Borrar cliente?")) return; await deleteDoc(doc(db,"clientes",id)); await cargarClientes(); };
+
+async function cargarClientes(){
+  const snapshot = await getDocs(coleccionClientes);
+  window.clients = snapshot.docs.map(d=>({...d.data(),id:d.id}));
+  window.clients.sort((a,b)=>a.name.localeCompare(b.name));
+  renderClients();
 }
 
-window.deleteClient = async function(id){
-  if(!confirm("Borrar cliente?")) return;
-  await deleteDoc(doc(db,"clientes",id));
-  await cargarClientes();
-}
-
-function renderClientes(){
+function renderClients(){
   document.getElementById('clientList').innerHTML="";
-  markers.forEach(m=>map.removeLayer(m));
-  markers=[];
-  clients.forEach((c,i)=>{
-    let div = document.createElement('div'); div.className="client";
-    div.innerHTML=`
-      <input type=checkbox id=c${i}> <b>${c.name}</b><br>
-      <small>${c.address || (c.lat?.toFixed(5)+','+c.lng?.toFixed(5))}</small><br>
+  markers.forEach(m=>map.removeLayer(m)); markers=[];
+  window.clients.forEach((c,i)=>{
+    const div=document.createElement('div'); div.className="client";
+    div.innerHTML=`<input type=checkbox id=c${i}> <b>${c.name}</b><br>
+      <small>${c.address|| (c.lat?.toFixed(5)+','+c.lng?.toFixed(5))}</small><br>
       <small>📝 ${c.notes||''}</small><br>
       <small>Visitas: ${c.visits||0}</small>
-      <button class='deleteBtn' onclick='deleteClient("${c.id}")'>🗑️ Borrar</button>
-    `;
+      <button class='deleteBtn' onclick='deleteClient("${c.id}")'>🗑️ Borrar</button>`;
     document.getElementById('clientList').appendChild(div);
-    if(c.lat && c.lng){
-      let m=L.marker([c.lat,c.lng]).addTo(map).bindPopup(c.name);
-      markers.push(m);
-    }
+    if(c.lat && c.lng){ markers.push(L.marker([c.lat,c.lng]).addTo(map).bindPopup(c.name)); }
   });
-  let totalVisits = clients.reduce((sum,c)=>sum+(c.visits||0),0);
-  document.getElementById('stats').innerHTML=`Clientes totales: ${clients.length}<br>Total visitas: ${totalVisits}`;
+  const totalVisits = window.clients.reduce((sum,c)=>sum+(c.visits||0),0);
+  document.getElementById('stats').innerHTML=`Clientes totales: ${window.clients.length}<br>Total visitas: ${totalVisits}`;
 }
 
-// --- GEOCODING ---
-async function geocode(address){
-  const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`);
-  const data = await res.json();
-  if(data.length>0) return {lat:parseFloat(data[0].lat), lng:parseFloat(data[0].lon)};
-  return null;
-}
+// RUTAS
+document.getElementById('startOption').addEventListener('change',()=>{ document.getElementById('startAddress').style.display=document.getElementById('startOption').value==='manual'?'block':'none'; });
 
-// --- RUTAS ---
+window.createRoute = async function(){
+  const date=document.getElementById('routeDate').value;
+  if(!date) return alert("Elige fecha");
+  let start;
+  if(document.getElementById('startOption').value==='current'){
+    try{ const pos=await new Promise((res,rej)=>navigator.geolocation.getCurrentPosition(res,rej)); start={lat:pos.coords.latitude,lng:pos.coords.longitude}; }
+    catch(e){ return alert("No se pudo obtener ubicación"); }
+  } else {
+    const addr=document.getElementById('startAddress').value; if(!addr) return alert("Ingresa dirección"); const c=await geocode(addr); if(!c) return alert("Dirección no encontrada"); start=c;
+  }
+
+  const selected = window.clients.filter((c,i)=>document.getElementById('c'+i)?.checked);
+  if(selected.length<1) return alert("Selecciona clientes");
+  const clientIds = selected.map(c=>c.id);
+
+  await addDoc(coleccionRutas,{date,clients:clientIds,start});
+  await cargarRutas();
+  alert("Ruta guardada");
+};
+
 async function cargarRutas(){
   const snapshot = await getDocs(coleccionRutas);
-  const rutas = snapshot.docs.map(d=>({...d.data(),id:d.id}));
-  const container = document.getElementById('routeList');
-  container.innerHTML="";
-  rutas.sort((a,b)=>a.date.localeCompare(b.date));
+  const rutas = snapshot.docs.map(d=>({...d.data(),id:d.id})).sort((a,b)=>a.date.localeCompare(b.date));
+  const container=document.getElementById('routeList'); container.innerHTML="";
   rutas.forEach(r=>{
-    const existingClients = clients.filter(c=>r.clients.includes(c.id));
-    if(existingClients.length===0) return;
-    let div = document.createElement('div'); div.className="routeItem";
-    div.innerHTML=`${r.date} 
+    const existing = window.clients.filter(c=>r.clients.includes(c.id));
+    if(existing.length===0) return;
+    const div=document.createElement('div'); div.className="routeItem";
+    div.innerHTML=`${r.date} (${existing.length} clientes)
       <button onclick="loadRoute('${r.id}')">🟢 Ver</button>
-      <button onclick="deleteRoute('${r.id}')">🗑️</button>`;
+      <button onclick="deleteRoute('${r.id}')">🗑️ Borrar</button>`;
     container.appendChild(div);
   });
 }
 
+window.deleteRoute = async function(id){ if(!confirm("Borrar ruta?")) return; await deleteDoc(doc(db,"rutas",id)); await cargarRutas(); };
+
 window.loadRoute = async function(id){
   const snapshot = await getDocs(coleccionRutas);
-  const routeDoc = snapshot.docs.find(d=>d.id===id);
-  if(!routeDoc) return alert("Ruta no encontrada");
-  const data = routeDoc.data();
-  const selectedClients = clients.filter(c=>data.clients.includes(c.id));
-  if(selectedClients.length===0) return alert("No hay clientes disponibles para esta ruta");
-
-  const coords=[[data.start.lat,data.start.lng],...selectedClients.map(c=>[c.lat,c.lng])];
-  lastRouteCoords = coords;
-  drawRoute(coords);
+  const docR = snapshot.docs.find(d=>d.id===id); if(!docR) return alert("Ruta no encontrada");
+  const data = docR.data();
+  const selected = window.clients.filter(c=>data.clients.includes(c.id));
+  if(selected.length<1) return alert("No hay clientes disponibles");
+  lastRouteCoords = [[data.start.lat,data.start.lng], ...selected.map(c=>[c.lat,c.lng])];
+  drawRoute(lastRouteCoords);
 };
 
-window.deleteRoute = async function(id){
-  if(!confirm("Borrar ruta?")) return;
-  await deleteDoc(doc(db,"rutas",id));
-  await cargarRutas();
-};
-
-// --- CREAR RUTA ---
-window.calculateRoute = async function(){
-  const selectedClients = clients.filter((c,i)=>document.getElementById('c'+i)?.checked);
-  if(selectedClients.length<1) return alert("Selecciona clientes");
-
-  let start;
-  const tipo = prompt("Ruta desde:\n1: Mi ubicación actual\n2: Ingresar dirección manual");
-  if(tipo==="1"){
-    try{
-      const pos = await new Promise((resolve,reject)=> navigator.geolocation.getCurrentPosition(resolve,reject));
-      start={lat:pos.coords.latitude,lng:pos.coords.longitude};
-    }catch(err){ return alert("No se pudo obtener ubicación"); }
-  } else if(tipo==="2"){
-    const addr = prompt("Introduce dirección de inicio");
-    const coords = await geocode(addr);
-    if(!coords) return alert("No se encontró dirección");
-    start=coords;
-  } else return alert("Cancelado");
-
-  const coords = [[start.lng,start.lat],...selectedClients.map(c=>[c.lng,c.lat])];
-  lastRouteCoords = coords;
-  drawRoute([[start.lat,start.lng], ...selectedClients.map(c=>[c.lat,c.lng])]);
-
-  // Guardar ruta en Firebase
-  const date = prompt("Fecha de la ruta (yyyy-mm-dd)");
-  if(!date) return alert("No se guardó");
-  const rutaDoc = {date, start, clients:selectedClients.map(c=>c.id)};
-  await addDoc(coleccionRutas,rutaDoc);
-  await cargarRutas();
-}
-
-// --- DIBUJAR RUTA ---
+// DRAW ROUTE
 function drawRoute(coords){
-  if(routeLine){ map.removeLayer(routeLine); routeLine=null; }
-  redMarkers.forEach(m=>map.removeLayer(m));
-  redMarkers=[];
-  const latlngs=coords.map(c=>[c[1],c[0]]);
-  routeLine=L.polyline(latlngs,{color:'red',weight:4}).addTo(map);
-  latlngs.forEach(c=>{
-    let m=L.circleMarker(c,{radius:6,color:'red',fillColor:'red',fillOpacity:0.6}).addTo(map);
-    redMarkers.push(m);
-  });
+  if(routeLine) map.removeLayer(routeLine);
+  redMarkers.forEach(m=>map.removeLayer(m)); redMarkers=[];
+  routeLine=L.polyline(coords,{color:'red'}).addTo(map);
   map.fitBounds(routeLine.getBounds());
+  coords.slice(1).forEach(c=>{
+    redMarkers.push(L.circleMarker(c,{radius:8,color:'red',fillColor:'red',fillOpacity:0.6}).addTo(map));
+  });
 }
 
-// --- GOOGLE MAPS / WAZE ---
+// GOOGLE MAPS / WAZE
 window.openInGoogleMaps = function(){
   if(lastRouteCoords.length<2) return alert("Calcula ruta primero");
-  const origin=lastRouteCoords[0].slice().reverse().join(',');
-  const waypoints=lastRouteCoords.slice(1).map(c=>c.slice().reverse().join(',')).join('|');
+  const origin = lastRouteCoords[0].slice().reverse().join(',');
+  const waypoints = lastRouteCoords.slice(1).map(c=>c.slice().reverse().join(',')).join('|');
   window.open(`https://www.google.com/maps/dir/?api=1&origin=${origin}&waypoints=${waypoints}`,'_blank');
-}
+};
+
 window.openInWaze = function(){
   if(lastRouteCoords.length<2) return alert("Calcula ruta primero");
-  const dest=lastRouteCoords[lastRouteCoords.length-1].slice().reverse().join(',');
+  const dest = lastRouteCoords[lastRouteCoords.length-1].slice().reverse().join(',');
   window.open(`https://waze.com/ul?ll=${dest}&navigate=yes`,'_blank');
+};
+
+// GEOCODE
+async function geocode(addr){
+  const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr)}`);
+  const data = await res.json(); if(data.length>0) return {lat:parseFloat(data[0].lat),lng:parseFloat(data[0].lon)}; return null;
 }
 
-// --- EXPORT / IMPORT CLIENTES ---
-window.exportClients = function(){
-  const dataStr = JSON.stringify(clients,null,2);
-  const blob=new Blob([dataStr],{type:'application/json'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a'); a.href=url; a.download='clientes_backup.json'; a.click();
-  URL.revokeObjectURL(url);
-}
-window.importClients = function(){
-  const input=document.createElement('input'); input.type='file'; input.accept='.json';
-  input.onchange=e=>{
-    const file=e.target.files[0];
-    const reader=new FileReader();
-    reader.onload=async ()=>{
-      try{
-        const imported=JSON.parse(reader.result);
-        if(Array.isArray(imported)){
-          for(const c of imported) await addDoc(coleccionClientes,c);
-          await cargarClientes();
-          alert("Clientes importados correctamente");
-        } else alert("Archivo no válido");
-      } catch(err){ alert("Error leyendo archivo"); }
-    };
-    reader.readAsText(file);
-  };
-  input.click();
-}
-
-// --- BORRAR RUTA ---
-window.clearRoute=function(){
-  if(routeLine){ map.removeLayer(routeLine); routeLine=null; }
-  redMarkers.forEach(m=>map.removeLayer(m)); redMarkers=[];
-  lastRouteCoords=[];
-}
-
-// --- EVENTOS ---
-document.getElementById('btnLogin').addEventListener('click',window.login);
-document.getElementById('btnAddClient').addEventListener('click',window.addClient);
-document.getElementById('btnRoute').addEventListener('click',window.calculateRoute);
-document.getElementById('btnClearRoute').addEventListener('click',window.clearRoute);
-
+// EVENT LISTENERS
+document.getElementById('btnLogin').addEventListener('click',login);
+document.getElementById('btnAddClient').addEventListener('click',addClient);
+document.getElementById('btnCreateRoute').addEventListener('click',createRoute);
 </script>
 </body>
 </html>
