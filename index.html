@@ -79,37 +79,10 @@ let clients=[], markers=[], redMarkers=[], routeLine, lastRouteCoords=[];
 let editingClientId = null;
 
 // ICONOS
-const iconNormal = new L.Icon({
-  iconUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  shadowUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-  iconSize:[25,41],
-  iconAnchor:[12,41],
-  popupAnchor:[1,-34]
-});
-
-// Comida: plato y tenedor
-const iconFood = new L.Icon({
-  iconUrl:"https://cdn-icons-png.flaticon.com/512/1046/1046784.png",
-  iconSize:[32,32],
-  iconAnchor:[16,32],
-  popupAnchor:[0,-30]
-});
-
-// Hotel: cama
-const iconHotel = new L.Icon({
-  iconUrl:"https://cdn-icons-png.flaticon.com/512/254/254025.png",
-  iconSize:[32,32],
-  iconAnchor:[16,32],
-  popupAnchor:[0,-30]
-});
-
-// Cliente seleccionado
-const iconPin = new L.Icon({
-  iconUrl:"https://cdn-icons-png.flaticon.com/512/25/25694.png",
-  iconSize:[32,32],
-  iconAnchor:[16,32],
-  popupAnchor:[0,-30]
-});
+const iconNormal = new L.Icon({iconUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",shadowUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",iconSize:[25,41],iconAnchor:[12,41],popupAnchor:[1,-34]});
+const iconFood = new L.Icon({iconUrl:"https://cdn-icons-png.flaticon.com/512/3075/3075977.png",iconSize:[32,32],iconAnchor:[16,32],popupAnchor:[0,-30]});
+const iconHotel = new L.Icon({iconUrl:"https://cdn-icons-png.flaticon.com/512/139/139899.png",iconSize:[32,32],iconAnchor:[16,32],popupAnchor:[0,-30]});
+const iconPin = new L.Icon({iconUrl:"https://cdn-icons-png.flaticon.com/512/25/25694.png",iconSize:[32,32],iconAnchor:[16,32],popupAnchor:[0,-30]});
 
 function getClientIcon(cliente){
   const text=(cliente.notes||"").toLowerCase();
@@ -151,14 +124,15 @@ async function cargarRutas(){
   });
 }
 
-// --- RENDER CLIENTES CON SELECCIÓN ---
+// --- RENDER CLIENTES CON SELECCIÓN SINCRONIZADA ---
 function renderClientes(){
   const container = document.getElementById('clientList');
   container.innerHTML="";
   markers.forEach(m=>map.removeLayer(m)); markers=[];
 
   clients.forEach((c,i)=>{
-    let div = document.createElement('div'); div.className='client';
+    let div = document.createElement('div'); 
+    div.className='client';
     div.innerHTML = `<input type=checkbox id=c${i}> <b>${c.name}</b><br><small>${c.address||(c.lat?.toFixed(5)+','+c.lng?.toFixed(5))}</small><br><small>📝 ${c.notes||''}</small><br>
       <button class="smallBtn" onclick='editClient("${c.id}")'>✏️ Editar</button><button class="smallBtn deleteBtn" onclick='deleteClient("${c.id}")'>🗑️ Borrar</button>`;
     container.appendChild(div);
@@ -168,20 +142,20 @@ function renderClientes(){
       m.clientId = c.id;
       m.defaultIcon = getClientIcon(c);
 
-      // Click en marcador
+      // sincronizar clic en marcador
       m.on('click', ()=>{
         const checkbox = document.getElementById('c'+i);
-        if(checkbox.checked){ checkbox.checked = false; m.setIcon(m.defaultIcon); }
-        else { checkbox.checked = true; m.setIcon(iconPin); }
+        checkbox.checked = !checkbox.checked;
+        m.setIcon(checkbox.checked ? iconPin : m.defaultIcon);
+      });
+
+      // sincronizar cambio en checkbox
+      const checkbox = document.getElementById('c'+i);
+      checkbox.addEventListener('change', ()=>{
+        m.setIcon(checkbox.checked ? iconPin : m.defaultIcon);
       });
 
       markers.push(m);
-
-      // Click en checkbox del listado
-      document.getElementById('c'+i).addEventListener('change', e=>{
-        if(e.target.checked) m.setIcon(iconPin);
-        else m.setIcon(m.defaultIcon);
-      });
     }
   });
 
@@ -232,7 +206,7 @@ window.createRoute=async function(){
 }
 
 function drawRoute(coords){
-  if(routeLine){map.removeLayer(routeLine);routeLine=null;}
+  if(routeLine){map.removeLayer(routeLine); routeLine=null;}
   redMarkers.forEach(m=>map.removeLayer(m)); redMarkers=[];
   const coordStr=coords.map(c=>c[1]+","+c[0]).join(";");
   fetch(`https://router.project-osrm.org/trip/v1/driving/${coordStr}?source=first&roundtrip=false&overview=full&geometries=geojson`)
@@ -257,8 +231,12 @@ window.deleteRoute=async function(id){if(!confirm("Borrar ruta?"))return;await d
 window.openInGoogleMaps=function(){
   if(lastRouteCoords.length<2) return alert("Calcula ruta primero");
   let origin=lastRouteCoords[0].join(',');
-  let waypoints=lastRouteCoords.slice(1).map(c=>c.join(',')).join('|');
-  window.open(`https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${lastRouteCoords[lastRouteCoords.length-1].join(',')}&waypoints=${waypoints}`,'_blank');
+  let waypoints=lastRouteCoords.slice(1,lastRouteCoords.length-1).map(c=>c.join(',')).join('|');
+  let destination=lastRouteCoords[lastRouteCoords.length-1].join(',');
+  let url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`;
+  if(waypoints) url += `&waypoints=${waypoints}`;
+  url += `&travelmode=driving&dir_action=navigate`;
+  window.open(url,'_blank');
 };
 
 window.openInWaze=function(){
