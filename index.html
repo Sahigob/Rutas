@@ -78,27 +78,29 @@ const coleccionRutas = collection(db,"rutas");
 let clients=[], markers=[], redMarkers=[], routeLine, lastRouteCoords=[];
 let editingClientId = null;
 
-// --- NUEVA CONFIGURACIÓN DE ICONOS ---
+// --- CONFIGURACIÓN DE ICONOS ESTILO CIRCULAR ---
+
 const iconNormal = new L.Icon({iconUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",shadowUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",iconSize:[25,41],iconAnchor:[12,41],popupAnchor:[1,-34]});
 
-// Restaurante: Cubiertos naranja
+// Restaurante: Círculo Naranja
 const iconFood = new L.Icon({
-  iconUrl: "https://img.icons8.com/color/96/restaurant.png", 
+  iconUrl: "https://img.icons8.com/flat-round/100/restaurant.png", 
   iconSize: [36, 36], 
   iconAnchor: [18, 36], 
   popupAnchor: [0, -32]
 });
 
-// Hotel: CAMA AZUL (Asegurándonos de que no sea el edificio de la imagen)
+// Hotel: Círculo Verde con Cama blanca
 const iconHotel = new L.Icon({
-  iconUrl: "https://img.icons8.com/color/96/bed.png", 
+  iconUrl: "https://img.icons8.com/flat-round/100/bed.png", 
   iconSize: [36, 36], 
   iconAnchor: [18, 36], 
   popupAnchor: [0, -32]
 });
 
+// Pin de Selección (Azul circular para mantener estilo)
 const iconPin = new L.Icon({
-  iconUrl: "https://img.icons8.com/color/96/marker.png",
+  iconUrl: "https://img.icons8.com/flat-round/100/checkmark.png",
   iconSize: [36, 36],
   iconAnchor: [18, 36],
   popupAnchor: [0, -32]
@@ -176,6 +178,7 @@ function renderClientes(){
       markers.push(m);
     }
   });
+
   document.getElementById('stats').innerHTML=`Clientes totales: ${clients.length}`;
 }
 
