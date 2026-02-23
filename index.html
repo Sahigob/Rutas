@@ -124,7 +124,7 @@ async function cargarRutas(){
   });
 }
 
-// --- RENDER CLIENTES CON SELECCIÓN ---
+// --- RENDER CLIENTES ---
 function renderClientes(){
   const container = document.getElementById('clientList');
   container.innerHTML="";
@@ -143,13 +143,8 @@ function renderClientes(){
 
       m.on('click', ()=>{
         const checkbox = document.getElementById('c'+i);
-        if(checkbox.checked){
-          checkbox.checked = false;
-          m.setIcon(m.defaultIcon);
-        } else {
-          checkbox.checked = true;
-          m.setIcon(iconPin);
-        }
+        if(checkbox.checked){ checkbox.checked = false; m.setIcon(m.defaultIcon); }
+        else{ checkbox.checked = true; m.setIcon(iconPin); }
       });
 
       markers.push(m);
@@ -225,13 +220,24 @@ window.loadRoute=async function(id){
 
 window.deleteRoute=async function(id){if(!confirm("Borrar ruta?"))return;await deleteDoc(doc(db,"rutas",id)); cargarRutas();};
 
+// --- GOOGLE MAPS ---
 window.openInGoogleMaps=function(){
-  if(lastRouteCoords.length<2) return alert("Calcula ruta primero");
-  let origin=lastRouteCoords[0].join(',');
-  let waypoints=lastRouteCoords.slice(1).map(c=>c.join(',')).join('|');
-  window.open(`https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${lastRouteCoords[lastRouteCoords.length-1].join(',')}&waypoints=${waypoints}`,'_blank');
+  if(lastRouteCoords.length < 2){ alert("Calcula ruta primero"); return; }
+  const origin = lastRouteCoords[0].join(',');
+  const destination = lastRouteCoords[lastRouteCoords.length - 1].join(',');
+  let url = "https://www.google.com/maps/dir/?api=1";
+  url += "&origin=" + origin;
+  url += "&destination=" + destination;
+  url += "&travelmode=driving";
+  if(lastRouteCoords.length > 2){
+    const waypoints = lastRouteCoords.slice(1,-1).map(c=>c.join(',')).join('|');
+    url += "&waypoints=" + waypoints;
+  }
+  url += "&dir_action=navigate";
+  window.open(url,"_blank");
 };
 
+// --- WAZE ---
 window.openInWaze=function(){
   if(lastRouteCoords.length<2) return alert("Calcula ruta primero");
   let dest=lastRouteCoords[lastRouteCoords.length-1].join(',');
@@ -259,7 +265,9 @@ document.addEventListener("DOMContentLoaded",()=>{
   document.getElementById('btnGoogleMaps').addEventListener('click',window.openInGoogleMaps);
   document.getElementById('btnWaze').addEventListener('click',window.openInWaze);
   document.getElementById('btnClearRoute').addEventListener('click',window.clearRoute);
-  document.getElementById('startOption').addEventListener('change',e=>{document.getElementById('startAddress').style.display=e.target.value==="manual"?"block":"none";});
+  document.getElementById('startOption').addEventListener('change',e=>{
+    document.getElementById('startAddress').style.display=e.target.value==="manual"?"block":"none";
+  });
 });
 </script>
 </body>
