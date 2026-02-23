@@ -78,31 +78,30 @@ const coleccionRutas = collection(db,"rutas");
 let clients=[], markers=[], redMarkers=[], routeLine, lastRouteCoords=[];
 let editingClientId = null;
 
-// --- CONFIGURACIÓN DE ICONOS MEJORADA ---
+// --- CONFIGURACIÓN DE ICONOS ---
 const iconNormal = new L.Icon({iconUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",shadowUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",iconSize:[25,41],iconAnchor:[12,41],popupAnchor:[1,-34]});
 
-// Restaurante: Círculo naranja con plato y cubiertos
+// Restaurante: Icono circular naranja con plato y cubiertos
 const iconFood = new L.Icon({
-  iconUrl:"https://cdn-icons-png.flaticon.com/512/3448/3448609.png",
-  iconSize:[38,38],
-  iconAnchor:[19,38],
-  popupAnchor:[0,-34]
+  iconUrl: "https://cdn-icons-png.flaticon.com/512/3448/3448609.png", 
+  iconSize: [38, 38], 
+  iconAnchor: [19, 38], 
+  popupAnchor: [0, -35]
 });
 
-// Hotel: Círculo azul con cama
+// Hotel: Icono circular azul con CAMA blanca (Sustituyendo el edificio)
 const iconHotel = new L.Icon({
-  iconUrl:"https://cdn-icons-png.flaticon.com/512/3009/3009489.png",
-  iconSize:[38,38],
-  iconAnchor:[19,38],
-  popupAnchor:[0,-34]
+  iconUrl: "https://cdn-icons-png.flaticon.com/512/3009/3009489.png", 
+  iconSize: [38, 38], 
+  iconAnchor: [19, 38], 
+  popupAnchor: [0, -35]
 });
 
-// Pin de selección (cuando marcas un cliente)
 const iconPin = new L.Icon({
-  iconUrl:"https://cdn-icons-png.flaticon.com/512/684/684908.png",
-  iconSize:[32,32],
-  iconAnchor:[16,32],
-  popupAnchor:[0,-30]
+  iconUrl: "https://cdn-icons-png.flaticon.com/512/684/684908.png",
+  iconSize: [32, 32],
+  iconAnchor: [16, 32],
+  popupAnchor: [0, -30]
 });
 
 function getClientIcon(cliente){
