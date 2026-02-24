@@ -78,7 +78,7 @@ const coleccionRutas = collection(db,"rutas");
 let clients=[], markers=[], redMarkers=[], routeLine, lastRouteCoords=[];
 let editingClientId = null;
 
-// --- CONFIGURACIÓN DE ICONOS MEJORADA ---
+// --- ICONOS UNIFORMES ---
 const iconNormal = new L.Icon({
   iconUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
   shadowUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
@@ -87,7 +87,7 @@ const iconNormal = new L.Icon({
   popupAnchor:[1,-34]
 });
 
-// Restaurante: Círculo naranja con plato y cubiertos
+// Restaurante: ícono naranja con plato y cubiertos
 const iconFood = new L.Icon({
   iconUrl:"https://cdn-icons-png.flaticon.com/512/3448/3448609.png",
   iconSize:[38,38],
@@ -95,15 +95,15 @@ const iconFood = new L.Icon({
   popupAnchor:[0,-34]
 });
 
-// Hotel: Círculo azul con cama
+// Hotel: ícono idéntico al restaurante pero con "H"
 const iconHotel = new L.Icon({
-  iconUrl:"https://cdn-icons-png.flaticon.com/512/3009/3009489.png",
+  iconUrl:"https://cdn-icons-png.flaticon.com/512/252/252025.png", 
   iconSize:[38,38],
   iconAnchor:[19,38],
   popupAnchor:[0,-34]
 });
 
-// Pin de selección (cuando marcas un cliente)
+// Pin de selección
 const iconPin = new L.Icon({
   iconUrl:"https://cdn-icons-png.flaticon.com/512/684/684908.png",
   iconSize:[32,32],
@@ -156,30 +156,25 @@ function renderClientes(){
   const container = document.getElementById('clientList');
   container.innerHTML="";
   markers.forEach(m=>map.removeLayer(m)); markers=[];
-
   clients.forEach((c,i)=>{
     let div = document.createElement('div'); 
     div.className='client';
     div.innerHTML = `<input type=checkbox id=c${i}> <b>${c.name}</b><br><small>${c.address||(c.lat?.toFixed(5)+','+c.lng?.toFixed(5))}</small><br><small>📝 ${c.notes||''}</small><br>
       <button class="smallBtn" onclick='editClient("${c.id}")'>✏️ Editar</button><button class="smallBtn deleteBtn" onclick='deleteClient("${c.id}")'>🗑️ Borrar</button>`;
     container.appendChild(div);
-
     if(c.lat && c.lng){
       let m = L.marker([c.lat,c.lng], {icon: getClientIcon(c)}).addTo(map).bindPopup("<b>"+c.name+"</b><br>"+(c.notes||""));
       m.clientId = c.id;
       m.defaultIcon = getClientIcon(c);
-
       m.on('click', ()=>{
         const checkbox = document.getElementById('c'+i);
         checkbox.checked = !checkbox.checked;
         m.setIcon(checkbox.checked ? iconPin : m.defaultIcon);
       });
-
       const checkbox = document.getElementById('c'+i);
       checkbox.addEventListener('change', ()=>{
         m.setIcon(checkbox.checked ? iconPin : m.defaultIcon);
       });
-
       markers.push(m);
     }
   });
@@ -290,7 +285,7 @@ document.addEventListener("DOMContentLoaded",()=>{
   document.getElementById('btnGoogleMaps').addEventListener('click',window.openInGoogleMaps);
   document.getElementById('btnWaze').addEventListener('click',window.openInWaze);
   document.getElementById('btnClearRoute').addEventListener('click',window.clearRoute);
-  document.getElementById('startOption').addEventListener('change',(e)=>{document.getElementById('startAddress').style.display=e.target.value==='manual'?'block':'none';});
+  document.getElementById('startOption').addEventListener('change',(e)=>{ document.getElementById('startAddress').style.display=(e.target.value==="manual")?'block':'none'; });
 });
 
 </script>
