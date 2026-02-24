@@ -78,30 +78,37 @@ const coleccionRutas = collection(db,"rutas");
 let clients=[], markers=[], redMarkers=[], routeLine, lastRouteCoords=[];
 let editingClientId = null;
 
-// --- NUEVA CONFIGURACIÓN DE ICONOS ---
-const iconNormal = new L.Icon({iconUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",shadowUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",iconSize:[25,41],iconAnchor:[12,41],popupAnchor:[1,-34]});
+// --- CONFIGURACIÓN DE ICONOS MEJORADA ---
+const iconNormal = new L.Icon({
+  iconUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+  shadowUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+  iconSize:[25,41],
+  iconAnchor:[12,41],
+  popupAnchor:[1,-34]
+});
 
-// Restaurante: Cubiertos naranja
+// Restaurante: Círculo naranja con plato y cubiertos
 const iconFood = new L.Icon({
-  iconUrl: "https://img.icons8.com/color/96/restaurant.png", 
-  iconSize: [36, 36], 
-  iconAnchor: [18, 36], 
-  popupAnchor: [0, -32]
+  iconUrl:"https://cdn-icons-png.flaticon.com/512/3448/3448609.png",
+  iconSize:[38,38],
+  iconAnchor:[19,38],
+  popupAnchor:[0,-34]
 });
 
-// Hotel: CAMA AZUL (Asegurándonos de que no sea el edificio de la imagen)
+// Hotel: Círculo azul con cama
 const iconHotel = new L.Icon({
-  iconUrl: "https://img.icons8.com/color/96/bed.png", 
-  iconSize: [36, 36], 
-  iconAnchor: [18, 36], 
-  popupAnchor: [0, -32]
+  iconUrl:"https://cdn-icons-png.flaticon.com/512/3009/3009489.png",
+  iconSize:[38,38],
+  iconAnchor:[19,38],
+  popupAnchor:[0,-34]
 });
 
+// Pin de selección (cuando marcas un cliente)
 const iconPin = new L.Icon({
-  iconUrl: "https://img.icons8.com/color/96/marker.png",
-  iconSize: [36, 36],
-  iconAnchor: [18, 36],
-  popupAnchor: [0, -32]
+  iconUrl:"https://cdn-icons-png.flaticon.com/512/684/684908.png",
+  iconSize:[32,32],
+  iconAnchor:[16,32],
+  popupAnchor:[0,-30]
 });
 
 function getClientIcon(cliente){
@@ -283,8 +290,9 @@ document.addEventListener("DOMContentLoaded",()=>{
   document.getElementById('btnGoogleMaps').addEventListener('click',window.openInGoogleMaps);
   document.getElementById('btnWaze').addEventListener('click',window.openInWaze);
   document.getElementById('btnClearRoute').addEventListener('click',window.clearRoute);
-  document.getElementById('startOption').addEventListener('change',e=>{document.getElementById('startAddress').style.display=e.target.value==="manual"?"block":"none";});
+  document.getElementById('startOption').addEventListener('change',(e)=>{document.getElementById('startAddress').style.display=e.target.value==='manual'?'block':'none';});
 });
+
 </script>
 </body>
 </html>
