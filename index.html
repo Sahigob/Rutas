@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8" />
-<title>Rutas Comerciales PRO v2.2</title>
+<title>Rutas Comerciales PRO v2.3</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
@@ -47,7 +47,7 @@ input, select, textarea {
 .client { padding:12px; border: 1px solid var(--border); background: white; margin-bottom: 8px; border-radius: 10px; }
 .stats-badge { background: #e0f2fe; color: #0369a1; padding: 4px 12px; border-radius: 20px; font-size: 0.85rem; }
 label { font-weight: 600; font-size: 13px; margin-bottom: 4px; display: block; }
-input[type="checkbox"] { width: auto; transform: scale(1.2); margin-right: 12px; }
+input[type="checkbox"] { width: auto; transform: scale(1.4); margin-right: 12px; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -115,10 +115,8 @@ let clients=[], markers=[], redMarkers=[], routeLine, lastRouteCoords=[], lastRo
 let editingClientId = null;
 let currentStartOption = "gps";
 
-// --- DEFINICIÓN DE ICONOS ---
 const iconNormal = new L.Icon({ iconUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png", shadowUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png", iconSize:[25,41], iconAnchor:[12,41] });
 const iconFood = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/3448/3448609.png", iconSize:[38,38], iconAnchor:[19,38] });
-// Icono Hotel: Círculo naranja con H negra (SVG)
 const iconHotel = new L.Icon({ 
     iconUrl: "data:image/svg+xml;base64," + btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 38 38"><circle cx="19" cy="19" r="18" fill="#ff9900" stroke="white" stroke-width="2"/><text x="50%" y="55%" font-size="18" text-anchor="middle" fill="black" font-family="Arial" font-weight="bold" dominant-baseline="middle">H</text></svg>`), 
     iconSize:[38,38], iconAnchor:[19,38] 
@@ -159,18 +157,48 @@ async function cargarRutas(){
 function renderClientes(){ 
     const container=document.getElementById('clientList'); container.innerHTML=""; 
     markers.forEach(m=>map.removeLayer(m)); markers=[]; 
+    
     clients.forEach((c,i)=>{ 
         let div=document.createElement('div'); div.className='client'; 
-        div.innerHTML=`<input type=checkbox id=c${i}> <b>${c.name}</b><br><small>${c.address||'Sin dirección'}</small><br>
-        <button class="smallBtn" onclick='editClient("${c.id}")'>✏️ Editar</button>
-        <button class="smallBtn deleteBtn" onclick='deleteClient("${c.id}")'>🗑️</button>`;
+        div.innerHTML=`
+            <div style="display:flex; align-items:center;">
+                <input type="checkbox" id="c${i}"> 
+                <div style="flex:1">
+                    <b>${c.name}</b><br><small>${c.address||'Sin dirección'}</small>
+                </div>
+            </div>
+            <div style="margin-top:8px">
+                <button class="smallBtn" onclick='editClient("${c.id}")'>✏️ Editar</button>
+                <button class="smallBtn deleteBtn" onclick='deleteClient("${c.id}")'>🗑️</button>
+            </div>`;
         container.appendChild(div);
-        if(c.lat&&c.lng){ 
-            let m=L.marker([c.lat,c.lng],{icon:getClientIcon(c)}).addTo(map).bindPopup(c.name);
-            m.on('click',()=>{ 
-                const cb=document.getElementById('c'+i); cb.checked=!cb.checked; 
-                m.setIcon(cb.checked?iconPin:getClientIcon(c)); 
+
+        if(c.lat && c.lng){ 
+            const defaultIcon = getClientIcon(c);
+            let m = L.marker([c.lat,c.lng], {icon: defaultIcon}).addTo(map).bindPopup(c.name);
+            
+            // Función para actualizar icono según estado del checkbox
+            const updateMarkerIcon = (checked) => {
+                m.setIcon(checked ? iconPin : defaultIcon);
+            };
+
+            // Evento 1: Clic en el Marcador del Mapa
+            m.on('click', () => { 
+                const cb = document.getElementById('c'+i); 
+                cb.checked = !cb.checked; 
+                updateMarkerIcon(cb.checked); 
             });
+
+            // Evento 2: Clic en el Checkbox del Listado
+            setTimeout(() => {
+                const cb = document.getElementById('c'+i);
+                if(cb) {
+                    cb.addEventListener('change', () => {
+                        updateMarkerIcon(cb.checked);
+                    });
+                }
+            }, 100);
+
             markers.push(m);
         }
     }); 
@@ -216,7 +244,7 @@ window.addClient=async function(){
 
 window.createRoute=async function(){ 
     let sel=clients.filter((c,i)=>document.getElementById('c'+i)?.checked); 
-    if(sel.length<1) return alert("Selecciona clientes"); 
+    if(sel.length<1) return alert("Selecciona clientes marcando los cuadritos"); 
     currentStartOption = document.getElementById('startOption').value;
     let sLat, sLng;
     if(currentStartOption==="gps"){ try { const p=await new Promise((r,j)=>navigator.geolocation.getCurrentPosition(r,j)); sLat=p.coords.latitude; sLng=p.coords.longitude; } catch(e){ return alert("GPS error"); } }
@@ -248,7 +276,7 @@ window.loadRoute=async function(id){
 }
 
 window.openInGoogleMaps=function(){ 
-    if(lastRouteCoords.length<2) return alert("Crea ruta"); 
+    if(lastRouteCoords.length<2) return alert("Crea ruta marcando los clientes"); 
     let origin = (currentStartOption === "gps") ? "" : lastRouteCoords[0].join(',');
     let dest = lastRouteClients[lastRouteClients.length-1];
     let destination = dest.address ? encodeURIComponent(dest.address) : (dest.lat+','+dest.lng);
