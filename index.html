@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8" />
-<title>Rutas Comerciales PRO v2.3</title>
+<title>Rutas Comerciales PRO v2.4</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
@@ -39,6 +39,7 @@ button:active { transform: scale(0.98); }
 
 .smallBtn { padding:6px 12px; font-size:12px; margin: 4px 2px; width: auto; display: inline-flex; }
 .deleteBtn { background:#ef4444; }
+.deleteBtn:hover { background:#dc2626; }
 
 input, select, textarea { 
   width:100%; margin:8px 0; padding:12px; border-radius:10px; border:1px solid var(--border); box-sizing: border-box; font-size: 14px; 
@@ -48,6 +49,12 @@ input, select, textarea {
 .stats-badge { background: #e0f2fe; color: #0369a1; padding: 4px 12px; border-radius: 20px; font-size: 0.85rem; }
 label { font-weight: 600; font-size: 13px; margin-bottom: 4px; display: block; }
 input[type="checkbox"] { width: auto; transform: scale(1.4); margin-right: 12px; cursor: pointer; }
+
+.routeItem { 
+    display:flex; justify-content:space-between; align-items:center; 
+    margin-bottom:8px; font-size:13px; background:#f1f5f9; 
+    padding:8px 12px; border-radius:10px; border:1px solid #e2e8f0;
+}
 </style>
 </head>
 <body>
@@ -145,11 +152,15 @@ async function cargarClientes(){
 async function cargarRutas(){ 
     const snapshot=await getDocs(coleccionRutas); 
     const container=document.getElementById('routeList'); container.innerHTML=""; 
-    snapshot.docs.forEach(doc => {
-        const r = doc.data();
+    snapshot.docs.forEach(docSnap => {
+        const r = docSnap.data();
         let div=document.createElement('div'); div.className="routeItem";
-        div.style="display:flex; justify-content:space-between; margin-bottom:4px; font-size:13px; background:white; padding:5px; border-radius:5px; border:1px solid #eee";
-        div.innerHTML=`<span>${r.date || 'Sin fecha'}</span> <button class="smallBtn" onclick="loadRoute('${doc.id}')">Ver</button>`;
+        div.innerHTML=`
+            <span>📅 ${r.date || 'Sin fecha'}</span> 
+            <div>
+                <button class="smallBtn" onclick="loadRoute('${docSnap.id}')">👁️ Ver</button>
+                <button class="smallBtn deleteBtn" onclick="deleteRoute('${docSnap.id}')">🗑️</button>
+            </div>`;
         container.appendChild(div);
     });
 }
@@ -162,7 +173,7 @@ function renderClientes(){
         let div=document.createElement('div'); div.className='client'; 
         div.innerHTML=`
             <div style="display:flex; align-items:center;">
-                <input type="checkbox" id="c${i}"> 
+                <input type="checkbox" id="c${i}" data-id="${c.id}"> 
                 <div style="flex:1">
                     <b>${c.name}</b><br><small>${c.address||'Sin dirección'}</small>
                 </div>
@@ -177,26 +188,17 @@ function renderClientes(){
             const defaultIcon = getClientIcon(c);
             let m = L.marker([c.lat,c.lng], {icon: defaultIcon}).addTo(map).bindPopup(c.name);
             
-            // Función para actualizar icono según estado del checkbox
-            const updateMarkerIcon = (checked) => {
-                m.setIcon(checked ? iconPin : defaultIcon);
-            };
+            const updateMarkerIcon = (checked) => { m.setIcon(checked ? iconPin : defaultIcon); };
 
-            // Evento 1: Clic en el Marcador del Mapa
             m.on('click', () => { 
                 const cb = document.getElementById('c'+i); 
                 cb.checked = !cb.checked; 
                 updateMarkerIcon(cb.checked); 
             });
 
-            // Evento 2: Clic en el Checkbox del Listado
             setTimeout(() => {
                 const cb = document.getElementById('c'+i);
-                if(cb) {
-                    cb.addEventListener('change', () => {
-                        updateMarkerIcon(cb.checked);
-                    });
-                }
+                if(cb) cb.addEventListener('change', () => updateMarkerIcon(cb.checked));
             }, 100);
 
             markers.push(m);
@@ -219,6 +221,8 @@ window.editClient=function(id){
 
 window.deleteClient=async function(id){ if(confirm("¿Borrar cliente?")) { await deleteDoc(doc(db,"clientes",id)); cargarClientes(); } };
 
+window.deleteRoute=async function(id){ if(confirm("¿Borrar esta ruta del historial?")) { await deleteDoc(doc(db,"rutas",id)); cargarRutas(); } };
+
 window.addClient=async function(){ 
     const name=document.getElementById('name').value.trim(), address=document.getElementById('address').value.trim(), notes=document.getElementById('notes').value.trim(), latIn=document.getElementById('lat').value, lngIn=document.getElementById('lng').value;
     if(!name) return alert("Pon nombre");
@@ -232,19 +236,17 @@ window.addClient=async function(){
             await updateDoc(doc(db,"clientes",editingClientId),{name,address,lat,lng,notes}); 
             editingClientId=null; 
             document.getElementById('btnAddClient').textContent='➕ Guardar cliente';
-            alert("✅ Cliente actualizado");
         } else { 
             await addDoc(coleccionClientes,{name,address,lat,lng,notes}); 
-            alert("✅ Cliente creado");
         }
         document.getElementById('name').value=""; document.getElementById('address').value=""; document.getElementById('notes').value=""; document.getElementById('lat').value=""; document.getElementById('lng').value="";
         cargarClientes();
-    } catch(e) { alert("Error al guardar: " + e.message); }
+    } catch(e) { alert("Error: " + e.message); }
 }
 
 window.createRoute=async function(){ 
     let sel=clients.filter((c,i)=>document.getElementById('c'+i)?.checked); 
-    if(sel.length<1) return alert("Selecciona clientes marcando los cuadritos"); 
+    if(sel.length<1) return alert("Selecciona clientes"); 
     currentStartOption = document.getElementById('startOption').value;
     let sLat, sLng;
     if(currentStartOption==="gps"){ try { const p=await new Promise((r,j)=>navigator.geolocation.getCurrentPosition(r,j)); sLat=p.coords.latitude; sLng=p.coords.longitude; } catch(e){ return alert("GPS error"); } }
@@ -252,7 +254,6 @@ window.createRoute=async function(){
     lastRouteCoords=[[sLat,sLng],...sel.map(c=>[c.lat,c.lng])];
     lastRouteClients=sel;
     await addDoc(coleccionRutas,{date:document.getElementById('routeDate').value, clients:sel.map(c=>c.id), start:{lat:sLat,lng:sLng}, mode:currentStartOption});
-    alert("🧭 Ruta generada");
     cargarRutas();
     drawRoute(lastRouteCoords);
 }
@@ -269,14 +270,36 @@ function drawRoute(coords){
 
 window.loadRoute=async function(id){ 
     const sn=await getDocs(coleccionRutas); const rd=sn.docs.find(d=>d.id===id); if(!rd)return;
-    const d=rd.data(); currentStartOption = d.mode || "gps";
-    lastRouteClients=clients.filter(c=>d.clients.includes(c.id));
+    const d=rd.data(); 
+    
+    // 1. Limpiar todos los checkboxes primero
+    clients.forEach((c, i) => {
+        const cb = document.getElementById('c'+i);
+        if(cb) cb.checked = false;
+    });
+
+    // 2. Marcar solo los de la ruta
+    lastRouteClients = clients.filter(c => {
+        const isIncluded = d.clients.includes(c.id);
+        if(isIncluded) {
+            const idx = clients.indexOf(c);
+            const cb = document.getElementById('c'+idx);
+            if(cb) {
+                cb.checked = true;
+                // Forzar actualización del icono en el mapa
+                markers[idx].setIcon(iconPin);
+            }
+        }
+        return isIncluded;
+    });
+
+    currentStartOption = d.mode || "gps";
     lastRouteCoords=[[d.start.lat,d.start.lng],...lastRouteClients.map(c=>[c.lat,c.lng])];
     drawRoute(lastRouteCoords);
 }
 
 window.openInGoogleMaps=function(){ 
-    if(lastRouteCoords.length<2) return alert("Crea ruta marcando los clientes"); 
+    if(lastRouteCoords.length<2) return alert("Crea o carga una ruta"); 
     let origin = (currentStartOption === "gps") ? "" : lastRouteCoords[0].join(',');
     let dest = lastRouteClients[lastRouteClients.length-1];
     let destination = dest.address ? encodeURIComponent(dest.address) : (dest.lat+','+dest.lng);
