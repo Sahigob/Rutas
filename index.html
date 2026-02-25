@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8" />
-<title>Rutas Comerciales PRO v2.1</title>
+<title>Rutas Comerciales PRO v2.2</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
@@ -115,9 +115,14 @@ let clients=[], markers=[], redMarkers=[], routeLine, lastRouteCoords=[], lastRo
 let editingClientId = null;
 let currentStartOption = "gps";
 
+// --- DEFINICIÓN DE ICONOS ---
 const iconNormal = new L.Icon({ iconUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png", shadowUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png", iconSize:[25,41], iconAnchor:[12,41] });
 const iconFood = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/3448/3448609.png", iconSize:[38,38], iconAnchor:[19,38] });
-const iconHotel = new L.Icon({ iconUrl: "https://cdn-icons-png.flaticon.com/512/2983/2983973.png", iconSize:[38,38], iconAnchor:[19,38] });
+// Icono Hotel: Círculo naranja con H negra (SVG)
+const iconHotel = new L.Icon({ 
+    iconUrl: "data:image/svg+xml;base64," + btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 38 38"><circle cx="19" cy="19" r="18" fill="#ff9900" stroke="white" stroke-width="2"/><text x="50%" y="55%" font-size="18" text-anchor="middle" fill="black" font-family="Arial" font-weight="bold" dominant-baseline="middle">H</text></svg>`), 
+    iconSize:[38,38], iconAnchor:[19,38] 
+});
 const iconPin = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/684/684908.png", iconSize:[32,32], iconAnchor:[16,32] });
 
 function getClientIcon(cliente){
@@ -145,7 +150,7 @@ async function cargarRutas(){
     snapshot.docs.forEach(doc => {
         const r = doc.data();
         let div=document.createElement('div'); div.className="routeItem";
-        div.style="display:flex; justify-content:space-between; margin-bottom:4px; font-size:13px";
+        div.style="display:flex; justify-content:space-between; margin-bottom:4px; font-size:13px; background:white; padding:5px; border-radius:5px; border:1px solid #eee";
         div.innerHTML=`<span>${r.date || 'Sin fecha'}</span> <button class="smallBtn" onclick="loadRoute('${doc.id}')">Ver</button>`;
         container.appendChild(div);
     });
@@ -180,7 +185,7 @@ window.editClient=function(id){
     document.getElementById('notes').value=c.notes||''; 
     document.getElementById('lat').value=c.lat||''; 
     document.getElementById('lng').value=c.lng||''; 
-    document.getElementById('btnAddClient').textContent='💾 Guardar cambios'; 
+    document.getElementById('btnAddClient').textContent = '💾 Guardar cambios'; 
     window.scrollTo({top:0,behavior:'smooth'}); 
 }
 
@@ -194,14 +199,19 @@ window.addClient=async function(){
     else if(address){ const co=await geocode(address); if(!co) return alert("No encontrada"); lat=co.lat; lng=co.lng; }
     else { try { const pos=await new Promise((r,j)=>navigator.geolocation.getCurrentPosition(r,j)); lat=pos.coords.latitude; lng=pos.coords.longitude; } catch(e){ return alert("GPS error"); } }
     
-    if(editingClientId){ 
-        await updateDoc(doc(db,"clientes",editingClientId),{name,address,lat,lng,notes}); 
-        editingClientId=null; document.getElementById('btnAddClient').textContent='➕ Guardar cliente';
-    } else { 
-        await addDoc(coleccionClientes,{name,address,lat,lng,notes}); 
-    }
-    document.getElementById('name').value=""; document.getElementById('address').value=""; document.getElementById('notes').value=""; document.getElementById('lat').value=""; document.getElementById('lng').value="";
-    cargarClientes();
+    try {
+        if(editingClientId){ 
+            await updateDoc(doc(db,"clientes",editingClientId),{name,address,lat,lng,notes}); 
+            editingClientId=null; 
+            document.getElementById('btnAddClient').textContent='➕ Guardar cliente';
+            alert("✅ Cliente actualizado");
+        } else { 
+            await addDoc(coleccionClientes,{name,address,lat,lng,notes}); 
+            alert("✅ Cliente creado");
+        }
+        document.getElementById('name').value=""; document.getElementById('address').value=""; document.getElementById('notes').value=""; document.getElementById('lat').value=""; document.getElementById('lng').value="";
+        cargarClientes();
+    } catch(e) { alert("Error al guardar: " + e.message); }
 }
 
 window.createRoute=async function(){ 
@@ -214,6 +224,8 @@ window.createRoute=async function(){
     lastRouteCoords=[[sLat,sLng],...sel.map(c=>[c.lat,c.lng])];
     lastRouteClients=sel;
     await addDoc(coleccionRutas,{date:document.getElementById('routeDate').value, clients:sel.map(c=>c.id), start:{lat:sLat,lng:sLng}, mode:currentStartOption});
+    alert("🧭 Ruta generada");
+    cargarRutas();
     drawRoute(lastRouteCoords);
 }
 
@@ -221,6 +233,7 @@ function drawRoute(coords){
     if(routeLine) map.removeLayer(routeLine); redMarkers.forEach(m=>map.removeLayer(m)); redMarkers=[];
     const str=coords.map(c=>c[1]+","+c[0]).join(";");
     fetch(`https://router.project-osrm.org/trip/v1/driving/${str}?source=first&roundtrip=false&overview=full&geometries=geojson`).then(r=>r.json()).then(d=>{
+        if(!d.trips) return;
         routeLine=L.geoJSON(d.trips[0].geometry,{style:{color:'#0ea5e9',weight:5}}).addTo(map); map.fitBounds(routeLine.getBounds());
         coords.slice(1).forEach(c=>{ redMarkers.push(L.circleMarker(c,{radius:6,color:'red',fillOpacity:1}).addTo(map)); });
     });
