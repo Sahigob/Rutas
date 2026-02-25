@@ -2,130 +2,37 @@
 <html lang="es">
 <head>
 <meta charset="utf-8" />
-<title>Rutas Comerciales PRO v2</title>
+<title>Rutas Comerciales PRO</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
-:root {
-  --primary: #0ea5e9;
-  --primary-dark: #0284c7;
-  --bg: #f8fafc;
-  --card-bg: #ffffff;
-  --text: #1e293b;
-  --border: #e2e8f0;
-}
+    :root { --primary: #0ea5e9; --success: #22c55e; --danger: #ef4444; --gray: #64748b; --bg: #f8fafc; }
+    body { margin:0; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; display:flex; height:100vh; background: var(--bg); color: #1e293b; }
 
-body { margin:0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; display:flex; flex-direction: row; height:100vh; background: var(--bg); color: var(--text); }
+    #map { flex:1; height: 100%; }
+    #panel { width:400px; display:flex; flex-direction: column; background:white; border-left:1px solid #e2e8f0; box-shadow: -2px 0 10px rgba(0,0,0,0.05); }
 
-#map { flex:1; height: 100%; z-index: 1; }
+    .tabs { display: flex; background: #f1f5f9; padding: 5px; gap: 5px; }
+    .tab-btn { flex: 1; padding: 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; background: transparent; color: var(--gray); transition: 0.2s; }
+    .tab-btn.active { background: white; color: var(--primary); box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .tab-content { display: none; padding: 16px; overflow-y: auto; flex: 1; }
+    .tab-content.active { display: block; }
 
-#panel { 
-  width:400px; 
-  padding:24px; 
-  overflow-y:auto; 
-  background: var(--card-bg); 
-  border-left: 1px solid var(--border); 
-  box-sizing: border-box; 
-  box-shadow: -4px 0 15px rgba(0,0,0,0.05);
-  z-index: 10;
-}
+    h3 { margin: 20px 0 10px 0; font-size: 1.1rem; border-left: 4px solid var(--primary); padding-left: 10px; }
+    h3:first-child { margin-top: 0; }
+    .card { background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; margin-bottom: 12px; }
+    input, select, textarea { width:100%; margin: 8px 0; padding: 12px; border-radius: 8px; border: 1px solid #cbd5e1; box-sizing: border-box; font-size: 16px; }
+    button { width:100%; padding: 12px; margin: 8px 0; border-radius: 10px; border:none; background: var(--primary); color:white; font-weight:600; cursor:pointer; transition: 0.2s; }
+    button:active { transform: scale(0.98); opacity: 0.9; }
+    .smallBtn { width: auto; padding: 6px 12px; font-size: 12px; margin: 4px 2px; }
+    .btn-outline { background: transparent; border: 1px solid var(--primary); color: var(--primary); }
+    .routeItem { padding:10px; border-bottom:1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
 
-@media (max-width: 768px) { 
-  body { flex-direction: column; } 
-  #map { flex: none; height: 40vh; } 
-  #panel { width: 100%; flex: 1; border-left: none; border-top: 2px solid var(--border); }
-}
-
-h3 { 
-  margin: 24px 0 12px 0; 
-  font-size: 1.1rem; 
-  font-weight: 700; 
-  color: var(--text);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-h3::before {
-  content: '';
-  width: 4px;
-  height: 18px;
-  background: var(--primary);
-  border-radius: 4px;
-}
-
-.card {
-  background: white;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 16px;
-  margin-bottom: 16px;
-  transition: box-shadow 0.2s;
-}
-
-.card:hover { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
-
-button { 
-  width:100%; 
-  padding:12px; 
-  margin:8px 0; 
-  border-radius:10px; 
-  border:none; 
-  background: var(--primary); 
-  color:white; 
-  font-weight:600; 
-  cursor:pointer; 
-  font-size: 14px; 
-  transition: all 0.2s;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 8px;
-}
-
-button:hover { background: var(--primary-dark); }
-button:active { transform: scale(0.98); }
-
-.smallBtn { padding:6px 12px; font-size:12px; margin: 4px 2px; width: auto; display: inline-flex; }
-
-.deleteBtn { background:#ef4444; }
-.deleteBtn:hover { background:#dc2626; }
-
-input, select, textarea { 
-  width:100%; 
-  margin:8px 0; 
-  padding:12px; 
-  border-radius:10px; 
-  border:1px solid var(--border); 
-  box-sizing: border-box; 
-  font-size: 14px; 
-  background: #fdfdfd;
-}
-
-input:focus { outline: 2px solid var(--primary); border-color: transparent; }
-
-.client { 
-  padding:12px; 
-  border: 1px solid var(--border); 
-  background: white; 
-  margin-bottom: 8px; 
-  border-radius: 10px;
-  font-size: 14px;
-}
-
-hr { border: 0; border-top: 1px solid var(--border); margin: 24px 0; }
-
-label { font-weight: 600; font-size: 13px; color: var(--secondary); margin-bottom: 4px; display: block; }
-
-input[type="checkbox"] { width: auto; transform: scale(1.2); margin-right: 12px; accent-color: var(--primary); }
-
-.stats-badge {
-  background: #e0f2fe;
-  color: #0369a1;
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 0.85rem;
-}
+    @media (max-width: 768px) { 
+        body { flex-direction: column; } 
+        #map { height: 40vh; flex: none; } 
+        #panel { width: 100%; flex: 1; }
+    }
 </style>
 </head>
 <body>
@@ -133,59 +40,64 @@ input[type="checkbox"] { width: auto; transform: scale(1.2); margin-right: 12px;
 <div id="map"></div>
 
 <div id="panel">
-  <div class="card">
-    <h3>🔐 Login</h3>
-    <input id="email" placeholder="Correo electrónico" />
-    <input id="password" type="password" placeholder="Contraseña" />
-    <button id="btnLogin">Iniciar sesión</button>
-  </div>
-
-  <div class="card">
-    <h3>👥 Gestión de Clientes</h3>
-    <input id="name" placeholder="Nombre del cliente" />
-    <input id="address" placeholder="Dirección física" />
-    <textarea id="notes" placeholder="Notas sobre el cliente..." rows="2"></textarea>
-    <div style="display:flex; gap:8px">
-        <input id="lat" placeholder="Latitud" />
-        <input id="lng" placeholder="Longitud" />
+    <div class="tabs">
+        <button class="tab-btn active" onclick="openTab('tab-ruta')">🧭 Ruta</button>
+        <button class="tab-btn" onclick="openTab('tab-clientes')">👥 Clientes</button>
+        <button class="tab-btn" onclick="openTab('tab-config')">⚙️ Login</button>
     </div>
-    <button id="btnAddClient">➕ Guardar Cliente</button>
-  </div>
 
-  <div class="card">
-    <h3>🧭 Planificador de Ruta</h3>
-    <label>Fecha de la jornada</label>
-    <input type="date" id="routeDate" />
-    
-    <label>Punto de salida</label>
-    <select id="startOption">
-      <option value="gps">📍 Mi ubicación actual</option>
-      <option value="manual">✏️ Dirección específica</option>
-    </select>
-    <input id="startAddress" placeholder="Escribe dirección de salida" style="display:none"/>
-    <button id="btnCreateRoute">🗺️ Trazar ruta</button>
-    
-    <h4 style="margin: 16px 0 8px 0; font-size: 0.9rem;">Rutas guardadas</h4>
-    <div id="routeList"></div>
-  </div>
+    <div id="tab-ruta" class="tab-content active">
+        <h3>Nueva Ruta Diaria</h3>
+        <div class="card">
+            <label style="font-size: 0.8rem; color: var(--gray);">Fecha de visitas:</label>
+            <input type="date" id="routeDate" />
+            <select id="startOption">
+                <option value="gps">📍 Salir desde mi ubicación actual</option>
+                <option value="manual">✏️ Salir desde dirección manual</option>
+            </select>
+            <input id="startAddress" placeholder="Calle, número, ciudad..." style="display:none"/>
+            <button id="btnCreateRoute">🧭 Calcular y Mostrar en Mapa</button>
+        </div>
 
-  <div class="card">
-    <h3>🚀 Navegación</h3>
-    <button id="btnGoogleMaps" style="background: #22c55e;">🌐 Google Maps</button>
-    <button id="btnWaze" style="background: #33ccff;">🚙 Waze</button>
-    <button id="btnClearRoute" style="background: #64748b;">🧹 Limpiar mapa</button>
-  </div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <button id="btnGoogleMaps" style="background:#34a853">Google Maps</button>
+            <button id="btnWaze" style="background:#33ccff">Waze</button>
+        </div>
+        <button id="btnClearRoute" class="btn-outline">🧹 Limpiar Mapa</button>
 
-  <h3>📊 Estadísticas <span id="stats" class="stats-badge">0</span></h3>
-  
-  <div id="clientList"></div>
+        <h3>Historial de Rutas</h3>
+        <div id="routeList"></div>
+    </div>
+
+    <div id="tab-clientes" class="tab-content">
+        <h3>Añadir Punto de Interés</h3>
+        <div class="card">
+            <input id="name" placeholder="Nombre (Negocio o Persona)" />
+            <input id="address" placeholder="Dirección opcional" />
+            <textarea id="notes" placeholder="Notas: 'comida' o 'hotel' para icono" rows="2"></textarea>
+            <div style="display:flex; gap:5px">
+                <input id="lat" placeholder="Latitud" />
+                <input id="lng" placeholder="Longitud" />
+            </div>
+            <button id="btnAddClient">➕ Guardar en Agenda</button>
+        </div>
+        <div id="stats" style="font-weight: bold; color: var(--primary); margin-bottom: 10px; font-size: 0.9rem;"></div>
+        <div id="clientList"></div>
+    </div>
+
+    <div id="tab-config" class="tab-content">
+        <h3>Acceso Cloud Sync</h3>
+        <div class="card">
+            <input id="email" placeholder="Email" />
+            <input id="password" type="password" placeholder="Contraseña" />
+            <button id="btnLogin">🔑 Conectar</button>
+        </div>
+        <small style="color:var(--gray)">Rutas Comerciales PRO v2.5</small>
+    </div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script type="module">
-// ... [Tu lógica de Firebase y Leaflet se mantiene exactamente igual] ...
-// Solo asegúrate de copiar el bloque de script que ya tenías operativo.
-
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-auth.js";
@@ -199,114 +111,196 @@ const coleccionRutas = collection(db,"rutas");
 
 let clients=[], markers=[], redMarkers=[], routeLine, lastRouteCoords=[], lastRouteClients=[];
 let editingClientId = null;
+let currentStartOption = "gps"; 
 
-const iconNormal = new L.Icon({ iconUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png", shadowUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png", iconSize:[25,41], iconAnchor:[12,41], popupAnchor:[1,-34] });
-const iconFood = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/3448/3448609.png", iconSize:[38,38], iconAnchor:[19,38], popupAnchor:[0,-34] });
-const iconHotel = new L.Icon({ iconUrl: "data:image/svg+xml;base64," + btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 38 38"><circle cx="19" cy="19" r="18" fill="#ff9900" stroke="white" stroke-width="2"/><text x="50%" y="55%" font-size="18" text-anchor="middle" fill="black" font-family="Arial" font-weight="bold">H</text></svg>`), iconSize:[38,38], iconAnchor:[19,38], popupAnchor:[0,-34] });
-const iconPin = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/684/684908.png", iconSize:[32,32], iconAnchor:[16,32], popupAnchor:[0,-30] });
+// --- ICONOS ---
+const iconNormal = new L.Icon({ iconUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png", shadowUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png", iconSize:[25,41], iconAnchor:[12,41] });
+const iconFood = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/3448/3448609.png", iconSize:[38,38], iconAnchor:[19,38] });
+const iconHotel = new L.Icon({ iconUrl: "data:image/svg+xml;base64," + btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 38 38"><circle cx="19" cy="19" r="18" fill="#ff9900" stroke="white" stroke-width="2"/><text x="50%" y="55%" font-size="18" text-anchor="middle" fill="black" font-family="Arial" font-weight="bold">H</text></svg>`), iconSize:[38,38], iconAnchor:[19,38] });
+const iconPin = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/684/684908.png", iconSize:[32,32], iconAnchor:[16,32] });
 
-function getClientIcon(cliente){
-  const text=(cliente.notes||"").toLowerCase();
-  if(text.includes("comida")||text.includes("bar")||text.includes("restaurante")) return iconFood;
-  if(text.includes("hotel")||text.includes("hostal")) return iconHotel;
-  return iconNormal;
+function getClientIcon(c){
+    const t=(c.notes||"").toLowerCase();
+    if(t.includes("comida")||t.includes("bar")||t.includes("restaurante")) return iconFood;
+    if(t.includes("hotel")||t.includes("hostal")) return iconHotel;
+    return iconNormal;
 }
 
+// --- TABS ---
+window.openTab = function(id) {
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    event.currentTarget.classList.add('active');
+}
+
+// --- MAPA ---
 let map = L.map('map').setView([40.4168,-3.7038],12);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-async function geocode(addr){ let res=await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr)}`); let data=await res.json(); if(data.length>0) return {lat:parseFloat(data[0].lat), lng:parseFloat(data[0].lon)}; return null; }
+async function geocode(addr){ 
+    let res=await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr)}`); 
+    let data=await res.json(); 
+    return data.length > 0 ? {lat:parseFloat(data[0].lat), lng:parseFloat(data[0].lon)} : null; 
+}
 
-async function cargarClientes(){ const snapshot=await getDocs(coleccionClientes); clients=snapshot.docs.map(d=>({...d.data(),id:d.id})).filter(c=>c.name); clients.sort((a,b)=>(a.name||"").localeCompare(b.name||"")); renderClientes(); }
+// --- CLIENTES ---
+async function cargarClientes(){ 
+    const sn=await getDocs(coleccionClientes); 
+    clients=sn.docs.map(d=>({...d.data(),id:d.id})).filter(c=>c.name);
+    clients.sort((a,b)=>a.name.localeCompare(b.name));
+    renderClientes(); 
+}
 
-async function cargarRutas(){ const snapshot=await getDocs(coleccionRutas); const rutas=snapshot.docs.map(d=>({...d.data(),id:d.id})); const container=document.getElementById('routeList'); container.innerHTML=""; rutas.sort((a,b)=>(a.date||'').localeCompare(b.date||'')); rutas.forEach(r=>{ let div=document.createElement('div'); div.className="routeItem"; div.innerHTML=`${r.date} <button class="smallBtn" onclick="loadRoute('${r.id}')">🟢 Ver</button> <button class="smallBtn" onclick="deleteRoute('${r.id}')">🗑️</button>`; container.appendChild(div); }); }
+function renderClientes(){ 
+    const cont=document.getElementById('clientList'); cont.innerHTML="";
+    markers.forEach(m=>map.removeLayer(m)); markers=[];
+    clients.forEach((c,i)=>{
+        let div=document.createElement('div');
+        div.className = "card";
+        div.style.padding = "10px";
+        div.innerHTML=`<div style="display:flex; align-items:center; gap:10px">
+            <input type="checkbox" id="c${i}" style="width:20px; height:20px"> 
+            <div style="flex:1">
+                <b>${c.name}</b><br>
+                <small style="color:gray">${c.address || (c.lat+','+c.lng)}</small>
+            </div>
+            <button class="smallBtn btn-outline" onclick='editClient("${c.id}")'>✏️</button>
+        </div>`;
+        cont.appendChild(div);
+        if(c.lat && c.lng){
+            let m=L.marker([c.lat,c.lng],{icon:getClientIcon(c)}).addTo(map).bindPopup(c.name);
+            m.defaultIcon = getClientIcon(c);
+            m.on('click',()=>{ 
+                const cb=document.getElementById('c'+i); cb.checked=!cb.checked;
+                m.setIcon(cb.checked?iconPin:m.defaultIcon);
+            });
+            markers.push(m);
+        }
+    });
+    document.getElementById('stats').innerText = `Clientes: ${clients.length}`;
+}
 
-function renderClientes(){ const container=document.getElementById('clientList'); container.innerHTML=""; markers.forEach(m=>map.removeLayer(m)); markers=[]; clients.forEach((c,i)=>{ let div=document.createElement('div'); div.className='client'; div.innerHTML=`<input type=checkbox id=c${i}> <b>${c.name}</b><br><small>${c.address||(c.lat?.toFixed(5)+','+c.lng?.toFixed(5))}</small><br><small>📝 ${c.notes||''}</small><br><button class="smallBtn" onclick='editClient("${c.id}")'>✏️ Editar</button><button class="smallBtn deleteBtn" onclick='editClient("${c.id}")'>🗑️ Borrar</button>`; container.appendChild(div); if(c.lat&&c.lng){ let m=L.marker([c.lat,c.lng],{icon:getClientIcon(c)}).addTo(map).bindPopup("<b>"+c.name+"</b><br>"+(c.notes||"")); m.clientId=c.id; m.defaultIcon=getClientIcon(c); m.on('click',()=>{ const checkbox=document.getElementById('c'+i); checkbox.checked=!checkbox.checked; m.setIcon(checkbox.checked?iconPin:m.defaultIcon); }); const checkbox=document.getElementById('c'+i); checkbox.addEventListener('change',()=>{ m.setIcon(checkbox.checked?iconPin:m.defaultIcon); }); markers.push(m); } }); document.getElementById('stats').innerHTML=clients.length; }
-
-window.editClient=function(id){ const c=clients.find(x=>x.id===id); if(!c) return; editingClientId=id; document.getElementById('name').value=c.name||''; document.getElementById('address').value=c.address||''; document.getElementById('notes').value=c.notes||''; document.getElementById('lat').value=c.lat||''; document.getElementById('lng').value=c.lng||''; document.getElementById('btnAddClient').textContent='💾 Guardar cambios'; window.scrollTo({top:0,behavior:'smooth'}); }
-window.deleteClient=async function(id){ if(!confirm("Borrar cliente?")) return; await deleteDoc(doc(db,"clientes",id)); cargarClientes(); };
-
-window.addClient=async function(){ 
+window.addClient=async function(){
     const nEl=document.getElementById('name'), aEl=document.getElementById('address'), noEl=document.getElementById('notes'), laEl=document.getElementById('lat'), lnEl=document.getElementById('lng'), btn=document.getElementById('btnAddClient');
-    const name=nEl.value.trim(), address=aEl.value.trim(), notes=noEl.value.trim(), latIn=laEl.value, lngIn=lnEl.value;
-    if(!name) return alert("Pon nombre");
+    if(!nEl.value) return alert("Nombre obligatorio");
     let lat, lng;
-    if(latIn && lngIn){ lat=parseFloat(latIn); lng=parseFloat(lngIn); }
-    else if(address){ const co=await geocode(address); if(!co) return alert("No encontrada"); lat=co.lat; lng=co.lng; }
-    else { try { const pos=await new Promise((r,j)=>navigator.geolocation.getCurrentPosition(r,j)); lat=pos.coords.latitude; lng=pos.coords.longitude; } catch(e){ return alert("Error GPS"); } }
-    if(editingClientId){ await updateDoc(doc(db,"clientes",editingClientId),{name,address,lat,lng,notes}); editingClientId=null; btn.textContent='➕ Guardar cliente'; alert("✅ Cambios guardados"); }
-    else { await addDoc(coleccionClientes,{name,address,lat,lng,notes,visits:0}); alert("✅ Cliente guardado"); }
-    nEl.value=""; aEl.value=""; noEl.value=""; laEl.value=""; lnEl.value=""; cargarClientes();
+    if(laEl.value && lnEl.value){ lat=parseFloat(laEl.value); lng=parseFloat(lnEl.value); }
+    else if(aEl.value){ const co=await geocode(aEl.value); if(!co) return alert("Dirección no encontrada"); lat=co.lat; lng=co.lng; }
+    else { const pos=await new Promise((r,j)=>navigator.geolocation.getCurrentPosition(r,j)); lat=pos.coords.latitude; lng=pos.coords.longitude; }
+
+    const d = {name:nEl.value, address:aEl.value, notes:noEl.value, lat, lng};
+    if(editingClientId){ await updateDoc(doc(db,"clientes",editingClientId),d); editingClientId=null; btn.innerText='➕ Guardar'; }
+    else { await addDoc(coleccionClientes, {...d, visits:0}); }
+    nEl.value=aEl.value=noEl.value=laEl.value=lnEl.value=""; cargarClientes();
 }
 
-window.createRoute=async function(){ 
-    let sel=clients.filter((c,i)=>document.getElementById('c'+i)?.checked); 
-    if(sel.length<1) return alert("Selecciona clientes"); 
-    let opt=document.getElementById('startOption').value, sLat, sLng;
-    if(opt==="gps"){ try { const p=await new Promise((r,j)=>navigator.geolocation.getCurrentPosition(r,j)); sLat=p.coords.latitude; sLng=p.coords.longitude; } catch(e){ return alert("GPS error"); } }
-    else { let ad=document.getElementById('startAddress').value.trim(); if(!ad) return alert("Dirección salida vacía"); const c=await geocode(ad); if(!c) return alert("No válida"); sLat=c.lat; sLng=c.lng; }
-    const date=document.getElementById('routeDate').value; 
-    if(!date) return alert("Elige fecha");
-    lastRouteCoords=[[sLat,sLng],...sel.map(c=>[c.lat,c.lng])];
-    lastRouteClients=sel;
-    await addDoc(coleccionRutas,{date,clients:sel.map(c=>c.id),start:{lat:sLat,lng:sLat}});
-    alert("Ruta guardada"); cargarRutas(); drawRoute(lastRouteCoords);
+window.editClient=function(id){
+    const c=clients.find(x=>x.id===id); editingClientId=id;
+    document.getElementById('name').value=c.name; document.getElementById('address').value=c.address;
+    document.getElementById('notes').value=c.notes; document.getElementById('lat').value=c.lat;
+    document.getElementById('lng').value=c.lng; document.getElementById('btnAddClient').innerText='💾 Actualizar';
+    openTab('tab-clientes');
 }
 
-function drawRoute(coords){ 
-    if(routeLine) map.removeLayer(routeLine); redMarkers.forEach(m=>map.removeLayer(m)); redMarkers=[];
-    const str=coords.map(c=>c[1]+","+c[0]).join(";");
-    fetch(`https://router.project-osrm.org/trip/v1/driving/${str}?source=first&roundtrip=false&overview=full&geometries=geojson`).then(r=>r.json()).then(d=>{
-        routeLine=L.geoJSON(d.trips[0].geometry).addTo(map); map.fitBounds(routeLine.getBounds());
-        coords.slice(1).forEach(c=>{ let m=L.circleMarker(c,{radius:8,color:'red',fillColor:'red',fillOpacity:0.6}).addTo(map); redMarkers.push(m); });
+window.deleteClient=async function(id){ if(confirm("¿Borrar punto?")){ await deleteDoc(doc(db,"clientes",id)); cargarClientes(); } }
+
+// --- RUTAS ---
+async function cargarRutas(){
+    const sn=await getDocs(coleccionRutas); 
+    const rts=sn.docs.map(d=>({...d.data(),id:d.id}));
+    const cont=document.getElementById('routeList'); cont.innerHTML="";
+    rts.sort((a,b)=>b.date.localeCompare(a.date)).forEach(r=>{
+        let div=document.createElement('div'); div.className="routeItem";
+        div.innerHTML=`<span>📅 ${r.date}</span> <div>
+            <button class="smallBtn" onclick="loadRoute('${r.id}')">👁️</button>
+            <button class="smallBtn" style="background:var(--danger)" onclick="deleteRoute('${r.id}')">🗑️</button>
+        </div>`;
+        cont.appendChild(div);
     });
 }
 
-window.loadRoute=async function(id){ 
-    const sn=await getDocs(coleccionRutas); const rd=sn.docs.find(d=>d.id===id); if(!rd)return;
-    const d=rd.data(); lastRouteClients=clients.filter(c=>d.clients.includes(c.id));
-    lastRouteCoords=[[d.start.lat,d.start.lng],...lastRouteClients.map(c=>[c.lat,c.lng])];
+window.createRoute=async function(){
+    let sel=clients.filter((c,i)=>document.getElementById('c'+i)?.checked);
+    if(sel.length<1) return alert("Selecciona clientes");
+    
+    currentStartOption = document.getElementById('startOption').value;
+    let sLat, sLng;
+
+    if(currentStartOption==="gps"){
+        const p=await new Promise((r,j)=>navigator.geolocation.getCurrentPosition(r,j)); sLat=p.coords.latitude; sLng=p.coords.longitude;
+    } else {
+        const c=await geocode(document.getElementById('startAddress').value); if(!c) return alert("Salida no encontrada"); sLat=c.lat; sLng=c.lng;
+    }
+
+    const date=document.getElementById('routeDate').value || new Date().toISOString().split('T')[0];
+    lastRouteClients=sel; 
+    lastRouteCoords=[[sLat,sLng], ...sel.map(c=>[c.lat,c.lng])];
+    
+    await addDoc(coleccionRutas,{date, clients:sel.map(c=>c.id), start:{lat:sLat, lng:sLng}, startType: currentStartOption});
+    cargarRutas(); drawRoute(lastRouteCoords);
+}
+
+function drawRoute(coords){
+    if(routeLine) map.removeLayer(routeLine); redMarkers.forEach(m=>map.removeLayer(m)); redMarkers=[];
+    const str=coords.map(c=>c[1]+","+c[0]).join(";");
+    fetch(`https://router.project-osrm.org/trip/v1/driving/${str}?source=first&roundtrip=false&overview=full&geometries=geojson`).then(r=>r.json()).then(d=>{
+        routeLine=L.geoJSON(d.trips[0].geometry, {style:{color: '#0ea5e9', weight: 5}}).addTo(map);
+        map.fitBounds(routeLine.getBounds().pad(0.2));
+        coords.slice(1).forEach(c=> { let m=L.circleMarker(c,{radius:7, color:'red', fillOpacity:1}).addTo(map); redMarkers.push(m); });
+    });
+}
+
+window.loadRoute=async function(id){
+    const sn=await getDocs(coleccionRutas); const r=sn.docs.find(d=>d.id===id).data();
+    currentStartOption = r.startType || "gps"; 
+    lastRouteClients=clients.filter(c=>r.clients.includes(c.id));
+    lastRouteCoords=[[r.start.lat,r.start.lng], ...lastRouteClients.map(c=>[c.lat,c.lng])];
     drawRoute(lastRouteCoords);
 }
 
-window.deleteRoute=async function(id){ if(confirm("Borrar?")) { await deleteDoc(doc(db,"rutas",id)); cargarRutas(); } }
+window.deleteRoute=async function(id){ if(confirm("¿Borrar?")){ await deleteDoc(doc(db,"rutas",id)); cargarRutas(); } }
 
-window.openInGoogleMaps=function(){ 
-    if(lastRouteCoords.length<2) return alert("Calcula ruta primero"); 
-    let origin = lastRouteCoords[0].join(',');
-    let lastClient = lastRouteClients[lastRouteClients.length - 1];
-    let destination = lastClient.address ? encodeURIComponent(lastClient.address) : lastRouteCoords[lastRouteCoords.length-1].join(',');
+// --- GOOGLE MAPS CORREGIDO ---
+window.openInGoogleMaps=function(){
+    if(lastRouteCoords.length<2) return alert("No hay ruta activa.");
+    
+    // Si la ruta se creó con GPS, dejamos origin vacío para que Google Maps use la posición REAL del móvil en ese momento
+    // Si es manual, usamos las coordenadas guardadas.
+    let origin = (currentStartOption === "gps") ? "" : lastRouteCoords[0].join(',');
+    
+    let lastPoint = lastRouteClients[lastRouteClients.length - 1];
+    let dest = lastPoint.address ? encodeURIComponent(lastPoint.address) : (lastPoint.lat + ',' + lastPoint.lng);
+    
     let waypoints = "";
     if(lastRouteClients.length > 1) {
-        waypoints = lastRouteClients.slice(0, -1).map(c => c.address ? encodeURIComponent(c.address) : (c.lat + ',' + c.lng)).join('|');
+        waypoints = lastRouteClients.slice(0, -1).map(c => 
+            c.address ? encodeURIComponent(c.address) : (c.lat + ',' + c.lng)
+        ).join('|');
     }
-    let url=`https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`;
-    if(waypoints) url += `&waypoints=${waypoints}`;
-    url += `&travelmode=driving`;
-    window.open(url,'_blank'); 
+
+    const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}&waypoints=${waypoints}&travelmode=driving`;
+    window.open(url, '_blank');
 }
 
-window.openInWaze=function(){ 
-    if(lastRouteCoords.length<2) return alert("Calcula ruta primero"); 
-    let dest=lastRouteCoords[lastRouteCoords.length-1].join(','); 
-    window.open(`https://waze.com/ul?ll=${dest}&navigate=yes`,'_blank'); 
+window.openInWaze=function(){
+    if(lastRouteCoords.length<2) return alert("No hay ruta.");
+    let dest=lastRouteCoords[lastRouteCoords.length-1].join(',');
+    window.open(`https://waze.com/ul?ll=${dest}&navigate=yes`,'_blank');
 }
-
-window.clearRoute=function(){ if(routeLine) map.removeLayer(routeLine); redMarkers.forEach(m=>map.removeLayer(m)); redMarkers=[]; lastRouteCoords=[]; lastRouteClients=[]; }
 
 window.login=async function(){ 
-    const e=document.getElementById('email').value, p=document.getElementById('password').value;
-    try { await signInWithEmailAndPassword(auth,e,p); alert("Login OK"); cargarClientes(); cargarRutas(); } catch(e){ alert("Error: "+e.message); }
+    try { await signInWithEmailAndPassword(auth, document.getElementById('email').value, document.getElementById('password').value); alert("OK"); cargarClientes(); cargarRutas(); } catch(e){ alert("Error: "+e.message); }
 }
 
 document.addEventListener("DOMContentLoaded",()=>{
-    document.getElementById('btnLogin').addEventListener('click',login);
     document.getElementById('btnAddClient').addEventListener('click',addClient);
     document.getElementById('btnCreateRoute').addEventListener('click',createRoute);
-    document.getElementById('btnGoogleMaps').addEventListener('click',window.openInGoogleMaps);
+    document.getElementById('btnGoogleMaps').addEventListener('click',openInGoogleMaps);
     document.getElementById('btnWaze').addEventListener('click',window.openInWaze);
-    document.getElementById('btnClearRoute').addEventListener('click',window.clearRoute);
-    document.getElementById('startOption').addEventListener('change',e=>{ document.getElementById('startAddress').style.display=(e.target.value==="manual")?"block":"none"; });
+    document.getElementById('btnClearRoute').addEventListener('click',() => { if(routeLine) map.removeLayer(routeLine); redMarkers.forEach(m=>map.removeLayer(m)); });
+    document.getElementById('btnLogin').addEventListener('click',window.login);
+    document.getElementById('startOption').addEventListener('change',e=>document.getElementById('startAddress').style.display=e.target.value==="manual"?'block':'none');
     cargarClientes(); cargarRutas();
 });
 </script>
