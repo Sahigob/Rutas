@@ -91,14 +91,14 @@ input[type="checkbox"] { width: auto; transform: scale(1.4); margin-right: 12px;
       <option value="manual">✏️ Dirección manual</option>
     </select>
     <input id="startAddress" placeholder="Dirección de salida" style="display:none"/>
-    <button id="btnCreateRoute">🧭 Crear ruta</button>
+    <button id="btnCreateRoute">🧭 Crear ruta optimizada</button>
     <div id="routeList"></div>
   </div>
 
   <div class="card">
     <h3>🚗 Navegación</h3>
-    <button id="btnGoogleMaps" style="background: #22c55e;">🌐 Google Maps</button>
-    <button id="btnWaze" style="background: #33ccff;">🚙 Abrir en Waze</button>
+    <button id="btnGoogleMaps" style="background: #22c55e;">🌐 Google Maps (Ruta completa)</button>
+    <button id="btnWaze" style="background: #33ccff;">🚙 Waze (Siguiente parada)</button>
     <button id="btnClearRoute" style="background: #64748b;">🧹 Limpiar mapa</button>
   </div>
 
@@ -221,7 +221,6 @@ window.editClient=function(id){
 }
 
 window.deleteClient=async function(id){ if(confirm("¿Borrar cliente?")) { await deleteDoc(doc(db,"clientes",id)); cargarClientes(); } };
-
 window.deleteRoute=async function(id){ if(confirm("¿Borrar esta ruta del historial?")) { await deleteDoc(doc(db,"rutas",id)); cargarRutas(); } };
 
 window.addClient=async function(){ 
@@ -245,16 +244,36 @@ window.addClient=async function(){
     } catch(e) { alert("Error: " + e.message); }
 }
 
+// Lógica de cálculo de distancia simple para ordenar
+function getDistance(lat1, lon1, lat2, lon2) {
+    return Math.sqrt(Math.pow(lat2 - lat1, 2) + Math.pow(lon2 - lon1, 2));
+}
+
 window.createRoute=async function(){ 
     let sel=clients.filter((c,i)=>document.getElementById('c'+i)?.checked); 
     if(sel.length<1) return alert("Selecciona clientes"); 
+
     currentStartOption = document.getElementById('startOption').value;
     let sLat, sLng;
     if(currentStartOption==="gps"){ try { const p=await new Promise((r,j)=>navigator.geolocation.getCurrentPosition(r,j)); sLat=p.coords.latitude; sLng=p.coords.longitude; } catch(e){ return alert("GPS error"); } }
     else { let ad=document.getElementById('startAddress').value.trim(); if(!ad) return alert("Salida vacía"); const c=await geocode(ad); if(!c) return alert("No válida"); sLat=c.lat; sLng=c.lng; }
-    lastRouteCoords=[[sLat,sLng],...sel.map(c=>[c.lat,c.lng])];
-    lastRouteClients=sel;
-    await addDoc(coleccionRutas,{date:document.getElementById('routeDate').value, clients:sel.map(c=>c.id), start:{lat:sLat,lng:sLng}, mode:currentStartOption});
+
+    // ORDENACIÓN POR CERCANÍA (Greedy algorithm)
+    let orderedClients = [];
+    let remaining = [...sel];
+    let currentPos = {lat: sLat, lng: sLng};
+
+    while(remaining.length > 0) {
+        remaining.sort((a,b) => getDistance(currentPos.lat, currentPos.lng, a.lat, a.lng) - getDistance(currentPos.lat, currentPos.lng, b.lat, b.lng));
+        let next = remaining.shift();
+        orderedClients.push(next);
+        currentPos = {lat: next.lat, lng: next.lng};
+    }
+
+    lastRouteClients = orderedClients;
+    lastRouteCoords = [[sLat,sLng], ...orderedClients.map(c=>[c.lat,c.lng])];
+    
+    await addDoc(coleccionRutas,{date:document.getElementById('routeDate').value, clients:orderedClients.map(c=>c.id), start:{lat:sLat,lng:sLng}, mode:currentStartOption});
     cargarRutas();
     drawRoute(lastRouteCoords);
 }
@@ -278,17 +297,16 @@ window.loadRoute=async function(id){
         if(cb) cb.checked = false;
     });
 
-    lastRouteClients = clients.filter(c => {
-        const isIncluded = d.clients.includes(c.id);
-        if(isIncluded) {
-            const idx = clients.indexOf(c);
-            const cb = document.getElementById('c'+idx);
-            if(cb) {
-                cb.checked = true;
-                markers[idx].setIcon(iconPin);
-            }
+    // Cargar clientes manteniendo el orden guardado en la base de datos
+    lastRouteClients = d.clients.map(cid => clients.find(c => c.id === cid)).filter(c => c !== undefined);
+
+    lastRouteClients.forEach(c => {
+        const idx = clients.indexOf(c);
+        const cb = document.getElementById('c'+idx);
+        if(cb) {
+            cb.checked = true;
+            markers[idx].setIcon(iconPin);
         }
-        return isIncluded;
     });
 
     currentStartOption = d.mode || "gps";
@@ -306,8 +324,9 @@ window.openInGoogleMaps=function(){
 }
 
 window.openInWaze=function(){
-    if(lastRouteCoords.length<2) return alert("Crea o carga una ruta");
-    let dest = lastRouteClients[lastRouteClients.length-1];
+    if(lastRouteClients.length < 1) return alert("Crea o carga una ruta");
+    // Waze solo permite 1 destino, así que enviamos al primero de la lista (el más cercano)
+    let dest = lastRouteClients[0];
     window.open(`https://waze.com/ul?ll=${dest.lat},${dest.lng}&navigate=yes`,'_blank');
 }
 
