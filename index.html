@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8" />
-<title>Rutas Comerciales PRO v2.4 - Edición Inline</title>
+<title>Rutas Comerciales PRO v2.8 - Orden Fijo</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
@@ -100,6 +100,7 @@ input[type="checkbox"] { width: auto; transform: scale(1.4); margin-right: 12px;
   <div class="card">
     <h3>🚗 Navegación</h3>
     <button id="btnGoogleMaps" style="background: #22c55e;">🌐 Abrir Google Maps</button>
+    <button id="btnRutaDirecta" style="background: #0284c7;">📍 Ruta Directa (Sin IA)</button>
     <button id="btnWaze" style="background: #1e40af;">🛣️ Abrir Waze</button>
     <button id="btnClearRoute" style="background: #64748b;">🧹 Limpiar mapa</button>
   </div>
@@ -174,7 +175,6 @@ function renderClientes(){
         let div=document.createElement('div'); div.className='client'; 
         
         if(editingClientId === c.id) {
-            // VISTA EDICIÓN INLINE
             div.classList.add('edit-mode');
             div.innerHTML = `
                 <input id="edit_name" value="${c.name||''}" placeholder="Nombre" />
@@ -189,7 +189,6 @@ function renderClientes(){
                     <button class="smallBtn" style="background:#64748b" onclick="cancelEdit()">❌</button>
                 </div>`;
         } else {
-            // VISTA NORMAL
             div.innerHTML=`<div style="display:flex; align-items:center;">
                     <input type="checkbox" id="c${i}" data-id="${c.id}"> 
                     <div style="flex:1">
@@ -222,10 +221,9 @@ function renderClientes(){
     document.getElementById('stats').innerHTML=clients.length; 
 }
 
-// FUNCIONES DE EDICIÓN MODIFICADAS
 window.editClient=function(id){ 
     editingClientId = id;
-    renderClientes(); // Redibujamos para mostrar el formulario inline
+    renderClientes(); 
 }
 
 window.cancelEdit=function(){
@@ -239,12 +237,10 @@ window.saveEditClient=async function(id){
     const notes = document.getElementById('edit_notes').value.trim();
     const latIn = document.getElementById('edit_lat').value;
     const lngIn = document.getElementById('edit_lng').value;
-
     if(!name) return alert("Pon nombre");
     let lat, lng;
     if(latIn && lngIn){ lat=parseFloat(latIn); lng=parseFloat(lngIn); }
     else if(address){ const co=await geocode(address); if(!co) return alert("No encontrada"); lat=co.lat; lng=co.lng; }
-    
     try {
         await updateDoc(doc(db,"clientes",id),{name,address,lat,lng,notes}); 
         editingClientId = null;
@@ -316,6 +312,7 @@ window.loadRoute=async function(id){
     drawRoute(lastRouteCoords);
 }
 
+// BOTÓN ORIGINAL DE GOOGLE MAPS (SIN TOCAR)
 window.openInGoogleMaps=function(){ 
     if(lastRouteCoords.length<2) return alert("Crea o carga una ruta"); 
     let origin = (currentStartOption === "gps") ? "" : lastRouteCoords[0].join(',');
@@ -323,6 +320,30 @@ window.openInGoogleMaps=function(){
     let destination = dest.address ? encodeURIComponent(dest.address) : (dest.lat+','+dest.lng);
     let waypoints = lastRouteClients.slice(0,-1).map(c=>c.address?encodeURIComponent(c.address):(c.lat+','+c.lng)).join('|');
     window.open(`https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${waypoints}&travelmode=driving`,'_blank'); 
+}
+
+// NUEVA FUNCIÓN: RUTA DIRECTA (Fuerza el orden de tu lista)
+window.openRutaDirecta = function() {
+    if (lastRouteClients.length < 1) return alert("Crea o carga una ruta primero");
+
+    // 1. Origen: Tu ubicación o dirección manual de salida
+    let origin = "";
+    if (currentStartOption === "manual") {
+        let ad = document.getElementById('startAddress').value.trim();
+        origin = encodeURIComponent(ad);
+    }
+
+    // 2. Destino: Forzamos que sea el ÚLTIMO cliente de la lista (ej: Valencia)
+    let ultimoCliente = lastRouteClients[lastRouteClients.length - 1];
+    let destination = ultimoCliente.address ? encodeURIComponent(ultimoCliente.address) : (ultimoCliente.lat + ',' + ultimoCliente.lng);
+
+    // 3. Paradas: Todos los clientes anteriores en su orden exacto (ej: Alcorcón será la Parada A)
+    let paradasIntermedias = lastRouteClients.slice(0, -1).map(c => {
+        return c.address ? encodeURIComponent(c.address) : (c.lat + ',' + c.lng);
+    }).join('|');
+
+    const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${paradasIntermedias}&travelmode=driving`;
+    window.open(url, '_blank');
 }
 
 window.openInWaze = function() {
@@ -355,6 +376,7 @@ document.addEventListener("DOMContentLoaded",()=>{
     document.getElementById('btnAddClient').addEventListener('click',addClient);
     document.getElementById('btnCreateRoute').addEventListener('click',createRoute);
     document.getElementById('btnGoogleMaps').addEventListener('click',window.openInGoogleMaps);
+    document.getElementById('btnRutaDirecta').addEventListener('click',window.openRutaDirecta); // Escuchador nuevo botón
     document.getElementById('btnWaze').addEventListener('click',window.openInWaze);
     document.getElementById('btnClearRoute').addEventListener('click',()=>{ if(routeLine)map.removeLayer(routeLine); redMarkers.forEach(m=>map.removeLayer(m)); });
     document.getElementById('startOption').addEventListener('change',e=>document.getElementById('startAddress').style.display=e.target.value==="manual"?"block":"none");
