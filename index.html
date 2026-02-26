@@ -55,13 +55,6 @@ input[type="checkbox"] { width: auto; transform: scale(1.4); margin-right: 12px;
     margin-bottom:8px; font-size:13px; background:#f1f5f9; 
     padding:8px 12px; border-radius:10px; border:1px solid #e2e8f0;
 }
-
-/* MODAL */
-#editModal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); justify-content:center; align-items:center; z-index:100; }
-#editModal .modal-content { background:white; padding:24px; border-radius:12px; width:90%; max-width:400px; }
-#editModal h3 { margin-top:0; }
-#editModal button { width:auto; flex:1; }
-#editModal .modal-buttons { display:flex; justify-content:space-between; margin-top:16px; gap:8px; }
 </style>
 </head>
 <body>
@@ -105,30 +98,12 @@ input[type="checkbox"] { width: auto; transform: scale(1.4); margin-right: 12px;
   <div class="card">
     <h3>🚗 Navegación</h3>
     <button id="btnGoogleMaps" style="background: #22c55e;">🌐 Abrir Google Maps</button>
-    <button id="btnWaze" style="background: #ff6600;">🚗 Abrir Waze</button>
+    <button id="btnWaze" style="background: #1e40af;">🛣️ Abrir Waze</button>
     <button id="btnClearRoute" style="background: #64748b;">🧹 Limpiar mapa</button>
   </div>
 
   <h3>📊 Clientes <span id="stats" class="stats-badge">0</span></h3>
   <div id="clientList"></div>
-</div>
-
-<!-- MODAL DE EDICION -->
-<div id="editModal">
-  <div class="modal-content">
-    <h3>✏️ Editar Cliente</h3>
-    <input id="editName" placeholder="Nombre cliente" />
-    <input id="editAddress" placeholder="Dirección" />
-    <textarea id="editNotes" placeholder="Notas" rows="2"></textarea>
-    <div style="display:flex; gap:8px">
-        <input id="editLat" placeholder="Latitud" />
-        <input id="editLng" placeholder="Longitud" />
-    </div>
-    <div class="modal-buttons">
-      <button id="btnSaveEdit" style="background:#0ea5e9;color:white;">💾 Guardar</button>
-      <button id="btnCancelEdit" style="background:#ef4444;color:white;">❌ Cancelar</button>
-    </div>
-  </div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -149,7 +124,10 @@ let editingClientId = null, currentStartOption = "gps";
 
 const iconNormal = new L.Icon({ iconUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png", shadowUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png", iconSize:[25,41], iconAnchor:[12,41] });
 const iconFood = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/3448/3448609.png", iconSize:[38,38], iconAnchor:[19,38] });
-const iconHotel = new L.Icon({ iconUrl:"data:image/svg+xml;base64,"+btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 38 38"><circle cx="19" cy="19" r="18" fill="#ff9900" stroke="white" stroke-width="2"/><text x="50%" y="55%" font-size="18" text-anchor="middle" fill="black" font-family="Arial" font-weight="bold" dominant-baseline="middle">H</text></svg>`), iconSize:[38,38], iconAnchor:[19,38] });
+const iconHotel = new L.Icon({ 
+    iconUrl: "data:image/svg+xml;base64," + btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 38 38"><circle cx="19" cy="19" r="18" fill="#ff9900" stroke="white" stroke-width="2"/><text x="50%" y="55%" font-size="18" text-anchor="middle" fill="black" font-family="Arial" font-weight="bold" dominant-baseline="middle">H</text></svg>`), 
+    iconSize:[38,38], iconAnchor:[19,38] 
+});
 const iconPin = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/684/684908.png", iconSize:[32,32], iconAnchor:[16,32] });
 const iconUser = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/684/684908.png", iconSize:[40,40], iconAnchor:[20,40] });
 
@@ -199,7 +177,7 @@ function renderClientes(){
                 </div>
             </div>
             <div style="margin-top:8px">
-                <button class="smallBtn" onclick='openEditModal("${c.id}")'>✏️ Editar</button>
+                <button class="smallBtn" onclick='editClient("${c.id}")'>✏️ Editar</button>
                 <button class="smallBtn deleteBtn" onclick='deleteClient("${c.id}")'>🗑️</button>
             </div>`;
         container.appendChild(div);
@@ -223,44 +201,142 @@ function renderClientes(){
     document.getElementById('stats').innerHTML=clients.length; 
 }
 
-// MODAL EDIT
-const editModal = document.getElementById('editModal');
-const editName = document.getElementById('editName');
-const editAddress = document.getElementById('editAddress');
-const editNotes = document.getElementById('editNotes');
-const editLat = document.getElementById('editLat');
-const editLng = document.getElementById('editLng');
-const btnSaveEdit = document.getElementById('btnSaveEdit');
-const btnCancelEdit = document.getElementById('btnCancelEdit');
-
-function openEditModal(id){
-    const c = clients.find(x=>x.id===id);
-    if(!c) return;
-    editingClientId = id;
-    editName.value = c.name || '';
-    editAddress.value = c.address || '';
-    editNotes.value = c.notes || '';
-    editLat.value = c.lat || '';
-    editLng.value = c.lng || '';
-    editModal.style.display = 'flex';
+window.editClient=function(id){ 
+    const c=clients.find(x=>x.id===id); if(!c) return;
+    editingClientId=id; 
+    document.getElementById('name').value=c.name||''; 
+    document.getElementById('address').value=c.address||''; 
+    document.getElementById('notes').value=c.notes||''; 
+    document.getElementById('lat').value=c.lat||''; 
+    document.getElementById('lng').value=c.lng||''; 
+    document.getElementById('btnAddClient').textContent = '💾 Guardar cambios'; 
+    window.scrollTo({top:0,behavior:'smooth'}); 
 }
 
-btnCancelEdit.onclick = () => { editModal.style.display='none'; editingClientId=null; }
-btnSaveEdit.onclick = async () => {
-    if(!editingClientId) return;
-    const name = editName.value.trim(), address = editAddress.value.trim(), notes = editNotes.value.trim(), lat = parseFloat(editLat.value), lng = parseFloat(editLng.value);
+window.deleteClient=async function(id){ if(confirm("¿Borrar cliente?")) { await deleteDoc(doc(db,"clientes",id)); cargarClientes(); } };
+window.deleteRoute=async function(id){ if(confirm("¿Borrar esta ruta del historial?")) { await deleteDoc(doc(db,"rutas",id)); cargarRutas(); } };
+
+window.addClient=async function(){ 
+    const name=document.getElementById('name').value.trim(), address=document.getElementById('address').value.trim(), notes=document.getElementById('notes').value.trim(), latIn=document.getElementById('lat').value, lngIn=document.getElementById('lng').value;
     if(!name) return alert("Pon nombre");
+    let lat, lng;
+    if(latIn && lngIn){ lat=parseFloat(latIn); lng=parseFloat(lngIn); }
+    else if(address){ const co=await geocode(address); if(!co) return alert("No encontrada"); lat=co.lat; lng=co.lng; }
+    else { try { const pos=await new Promise((r,j)=>navigator.geolocation.getCurrentPosition(r,j)); lat=pos.coords.latitude; lng=pos.coords.longitude; } catch(e){ return alert("GPS error"); } }
     try {
-        await updateDoc(doc(db,"clientes",editingClientId),{name,address,notes,lat,lng});
-        editModal.style.display='none';
-        editingClientId=null;
+        if(editingClientId){ 
+            await updateDoc(doc(db,"clientes",editingClientId),{name,address,lat,lng,notes}); 
+            editingClientId=null; 
+            document.getElementById('btnAddClient').textContent='➕ Guardar cliente';
+        } else { 
+            await addDoc(coleccionClientes,{name,address,lat,lng,notes}); 
+        }
+        document.getElementById('name').value=""; document.getElementById('address').value=""; document.getElementById('notes').value=""; document.getElementById('lat').value=""; document.getElementById('lng').value="";
         cargarClientes();
-    } catch(e){ alert("Error: "+e.message); }
+    } catch(e) { alert("Error: " + e.message); }
 }
 
-// --- resto de tu código de clientes, rutas, mapa, login, crear ruta, abrir Google Maps y Waze ---
-// por brevedad se mantiene igual que tu versión anterior, incluyendo userMarker, showUserPosition, createRoute, drawRoute, loadRoute, openInGoogleMaps, openInWaze
+window.createRoute=async function(){ 
+    let sel=clients.filter((c,i)=>document.getElementById('c'+i)?.checked); 
+    if(sel.length<1) return alert("Selecciona clientes"); 
+    currentStartOption = document.getElementById('startOption').value;
+    let sLat, sLng;
+    if(currentStartOption==="gps"){ 
+        if(userMarker){ const pos=userMarker.getLatLng(); sLat=pos.lat; sLng=pos.lng; } 
+        else { const p=await new Promise((r,j)=>navigator.geolocation.getCurrentPosition(r,j)); sLat=p.coords.latitude; sLng=p.coords.longitude; }
+    } else { 
+        let ad=document.getElementById('startAddress').value.trim(); if(!ad) return alert("Salida vacía"); const c=await geocode(ad); if(!c) return alert("No válida"); sLat=c.lat; sLng=c.lng; 
+    }
+    lastRouteCoords=[[sLat,sLng],...sel.map(c=>[c.lat,c.lng])];
+    lastRouteClients=sel;
+    await addDoc(coleccionRutas,{date:document.getElementById('routeDate').value, clients:sel.map(c=>c.id), start:{lat:sLat,lng:sLng}, mode:currentStartOption});
+    cargarRutas();
+    drawRoute(lastRouteCoords);
+}
 
+function drawRoute(coords){ 
+    if(routeLine) map.removeLayer(routeLine); redMarkers.forEach(m=>map.removeLayer(m)); redMarkers=[];
+    const str=coords.map(c=>c[1]+","+c[0]).join(";");
+    fetch(`https://router.project-osrm.org/trip/v1/driving/${str}?source=first&roundtrip=false&overview=full&geometries=geojson`).then(r=>r.json()).then(d=>{
+        if(!d.trips) return;
+        routeLine=L.geoJSON(d.trips[0].geometry,{style:{color:'#0ea5e9',weight:5}}).addTo(map); 
+        map.fitBounds(routeLine.getBounds());
+        coords.slice(1).forEach(c=>{ redMarkers.push(L.circleMarker(c,{radius:6,color:'red',fillOpacity:1}).addTo(map)); });
+    });
+}
+
+window.loadRoute=async function(id){ 
+    const sn=await getDocs(coleccionRutas); const rd=sn.docs.find(d=>d.id===id); if(!rd)return;
+    const d=rd.data(); 
+    clients.forEach((c, i) => { const cb = document.getElementById('c'+i); if(cb) cb.checked = false; });
+    lastRouteClients = clients.filter(c => {
+        const isIncluded = d.clients.includes(c.id);
+        if(isIncluded) {
+            const idx = clients.indexOf(c);
+            const cb = document.getElementById('c'+idx);
+            if(cb) { cb.checked = true; markers[idx].setIcon(iconPin); }
+        }
+        return isIncluded;
+    });
+    currentStartOption = d.mode || "gps";
+    lastRouteCoords=[[d.start.lat,d.start.lng],...lastRouteClients.map(c=>[c.lat,c.lng])];
+    drawRoute(lastRouteCoords);
+}
+
+window.openInGoogleMaps=function(){ 
+    if(lastRouteCoords.length<2) return alert("Crea o carga una ruta"); 
+    let origin = (currentStartOption === "gps") ? "" : lastRouteCoords[0].join(',');
+    let dest = lastRouteClients[lastRouteClients.length-1];
+    let destination = dest.address ? encodeURIComponent(dest.address) : (dest.lat+','+dest.lng);
+    let waypoints = lastRouteClients.slice(0,-1).map(c=>c.address?encodeURIComponent(c.address):(c.lat+','+c.lng)).join('|');
+    window.open(`https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${waypoints}&travelmode=driving`,'_blank'); 
+}
+
+// NUEVO: Abrir Waze
+window.openInWaze = function() {
+    if(lastRouteCoords.length < 2) return alert("Crea o carga una ruta");
+    if(!userMarker) return alert("No se pudo obtener tu ubicación");
+    
+    const origin = userMarker.getLatLng();
+    const dest = lastRouteClients[lastRouteClients.length - 1];
+    if(!dest.lat || !dest.lng) return alert("El destino necesita lat/lng para Waze");
+
+    const url = `https://waze.com/ul?ll=${dest.lat},${dest.lng}&navigate=yes&from=${origin.lat},${origin.lng}`;
+    window.open(url, '_blank');
+}
+
+window.login=async function(){ 
+    try { await signInWithEmailAndPassword(auth,document.getElementById('email').value,document.getElementById('password').value); alert("Login OK"); cargarClientes(); cargarRutas(); showUserPosition(); } catch(e){ alert("Error: "+e.message); }
+}
+
+let userMarker = null;
+async function showUserPosition() {
+    try {
+        const pos = await new Promise((resolve, reject) =>
+            navigator.geolocation.getCurrentPosition(resolve, reject)
+        );
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+
+        if(userMarker) map.removeLayer(userMarker);
+        userMarker = L.marker([lat, lng], {icon: iconUser}).addTo(map).bindPopup("📍 Tú estás aquí").openPopup();
+        map.setView([lat, lng], 13);
+
+    } catch(e) { console.warn("No se pudo obtener la ubicación: ", e); }
+}
+
+document.addEventListener("DOMContentLoaded",()=>{
+    document.getElementById('btnLogin').addEventListener('click',login);
+    document.getElementById('btnAddClient').addEventListener('click',addClient);
+    document.getElementById('btnCreateRoute').addEventListener('click',createRoute);
+    document.getElementById('btnGoogleMaps').addEventListener('click',window.openInGoogleMaps);
+    document.getElementById('btnWaze').addEventListener('click',window.openInWaze);
+    document.getElementById('btnClearRoute').addEventListener('click',()=>{ if(routeLine)map.removeLayer(routeLine); redMarkers.forEach(m=>map.removeLayer(m)); });
+    document.getElementById('startOption').addEventListener('change',e=>document.getElementById('startAddress').style.display=e.target.value==="manual"?"block":"none");
+    cargarClientes(); 
+    cargarRutas(); 
+    showUserPosition();
+});
 </script>
 </body>
 </html>
