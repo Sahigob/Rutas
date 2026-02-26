@@ -98,7 +98,7 @@ input[type="checkbox"] { width: auto; transform: scale(1.4); margin-right: 12px;
   <div class="card">
     <h3>🚗 Navegación</h3>
     <button id="btnGoogleMaps" style="background: #22c55e;">🌐 Google Maps</button>
-    <button id="btnWaze" style="background: #33ccff;">🚙 Waze</button>
+    <button id="btnWaze" style="background: #33ccff;">🚙 Abrir en Waze</button>
     <button id="btnClearRoute" style="background: #64748b;">🧹 Limpiar mapa</button>
   </div>
 
@@ -307,10 +307,8 @@ window.openInGoogleMaps=function(){
 
 window.openInWaze=function(){
     if(lastRouteCoords.length<2) return alert("Crea o carga una ruta");
-    // Waze maneja mejor un destino final directo.
     let dest = lastRouteClients[lastRouteClients.length-1];
-    let url = `https://waze.com/ul?ll=${dest.lat},${dest.lng}&navigate=yes`;
-    window.open(url, '_blank');
+    window.open(`https://waze.com/ul?ll=${dest.lat},${dest.lng}&navigate=yes`,'_blank');
 }
 
 window.login=async function(){ 
