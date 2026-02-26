@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8" />
-<title>Rutas Comerciales PRO v2.6</title>
+<title>Rutas Comerciales PRO v2.7</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
@@ -97,7 +97,7 @@ input[type="checkbox"] { width: auto; transform: scale(1.4); margin-right: 12px;
 
   <div class="card">
     <h3>🚗 Navegación</h3>
-    <button id="btnGoogleMaps" style="background: #22c55e;">🌐 Google Maps (Ruta)</button>
+    <button id="btnGoogleMaps" style="background: #22c55e;">🌐 Abrir Google Maps</button>
     <button id="btnWaze" style="background: #1e40af;">🛣️ Abrir Waze</button>
     <button id="btnClearRoute" style="background: #64748b;">🧹 Limpiar mapa</button>
   </div>
@@ -122,7 +122,6 @@ const coleccionRutas = collection(db,"rutas");
 let clients=[], markers=[], redMarkers=[], routeLine, lastRouteCoords=[], lastRouteClients=[];
 let editingClientId = null, currentStartOption = "gps", userMarker = null;
 
-// ICONOS REVISADOS
 const iconNormal = new L.Icon({ iconUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png", shadowUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png", iconSize:[25,41], iconAnchor:[12,41] });
 const iconFood = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/3448/3448609.png", iconSize:[32,32], iconAnchor:[16,32] });
 const iconHotel = new L.Icon({ 
@@ -130,8 +129,7 @@ const iconHotel = new L.Icon({
     iconSize:[32,32], iconAnchor:[16,32] 
 });
 const iconPin = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/684/684908.png", iconSize:[32,32], iconAnchor:[16,32] });
-// ICONO DE USUARIO (DIFERENTE)
-const iconUser = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/684/684908.png", iconSize:[40,40], iconAnchor:[20,40], className: 'user-location-icon' });
+const iconUser = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/684/684908.png", iconSize:[40,40], iconAnchor:[20,40] });
 
 function getClientIcon(cliente){
   const text=(cliente.notes||"").toLowerCase();
@@ -178,23 +176,18 @@ function renderClientes(){
     markers.forEach(m=>map.removeLayer(m)); markers=[]; 
     
     clients.forEach((c,i)=>{ 
-        let div=document.createElement('div'); 
-        div.className='client'; 
+        let div=document.createElement('div'); div.className='client'; 
         
         if(editingClientId === c.id) {
             div.classList.add('edit-mode');
             div.innerHTML = `
-                <label>Nombre:</label>
-                <input id="edit_name" value="${c.name || ''}" />
-                <label>Dirección:</label>
-                <input id="edit_address" value="${c.address || ''}" />
-                <label>Notas:</label>
-                <textarea id="edit_notes" rows="2">${c.notes || ''}</textarea>
+                <label>Nombre:</label><input id="edit_name" value="${c.name || ''}" />
+                <label>Dirección:</label><input id="edit_address" value="${c.address || ''}" />
+                <label>Notas:</label><textarea id="edit_notes" rows="2">${c.notes || ''}</textarea>
                 <div style="display:flex; gap:8px; margin-top:8px;">
                     <button class="smallBtn saveBtn" onclick="saveEdit('${c.id}')">💾 Guardar</button>
                     <button class="smallBtn" style="background:#64748b" onclick="cancelEdit()">❌ Cancelar</button>
-                </div>
-            `;
+                </div>`;
         } else {
             div.innerHTML=`<div style="display:flex; align-items:center;">
                     <input type="checkbox" id="c${i}" data-id="${c.id}"> 
@@ -213,12 +206,10 @@ function renderClientes(){
             const defaultIcon = getClientIcon(c);
             let m = L.marker([c.lat,c.lng], {icon: defaultIcon}).addTo(map).bindPopup(c.name);
             const updateMarkerIcon = (checked) => { m.setIcon(checked ? iconPin : defaultIcon); };
-            
             m.on('click', () => { 
                 const cb = document.getElementById('c'+i); 
                 if(cb) { cb.checked = !cb.checked; updateMarkerIcon(cb.checked); }
             });
-            
             setTimeout(() => {
                 const cb = document.getElementById('c'+i);
                 if(cb) cb.addEventListener('change', () => updateMarkerIcon(cb.checked));
@@ -258,12 +249,7 @@ window.addClient=async function(){
     if(!name) return alert("Pon nombre");
     let lat, lng;
     if(address){ const co=await geocode(address); if(!co) return alert("No encontrada"); lat=co.lat; lng=co.lng; }
-    else { 
-        try { 
-            const pos=await new Promise((r,j)=>navigator.geolocation.getCurrentPosition(r,j)); 
-            lat=pos.coords.latitude; lng=pos.coords.longitude; 
-        } catch(e){ return alert("GPS error"); } 
-    }
+    else { try { const pos=await new Promise((r,j)=>navigator.geolocation.getCurrentPosition(r,j)); lat=pos.coords.latitude; lng=pos.coords.longitude; } catch(e){ return alert("GPS error"); } }
     try {
         await addDoc(coleccionClientes,{name,address,lat,lng,notes}); 
         document.getElementById('name').value=""; document.getElementById('address').value=""; document.getElementById('notes').value="";
@@ -320,20 +306,22 @@ window.loadRoute=async function(id){
     drawRoute(lastRouteCoords);
 }
 
+// RESTAURADO: Lógica original de Google Maps (sin cambios)
 window.openInGoogleMaps=function(){ 
     if(lastRouteCoords.length<2) return alert("Crea o carga una ruta"); 
     let origin = (currentStartOption === "gps") ? "" : lastRouteCoords[0].join(',');
     let dest = lastRouteClients[lastRouteClients.length-1];
-    let destination = dest.lat + ',' + dest.lng;
-    let waypoints = lastRouteClients.slice(0,-1).map(c => c.lat + ',' + c.lng).join('|');
-    const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${waypoints}&travelmode=driving`;
-    window.open(url,'_blank'); 
+    let destination = dest.address ? encodeURIComponent(dest.address) : (dest.lat+','+dest.lng);
+    let waypoints = lastRouteClients.slice(0,-1).map(c=>c.address?encodeURIComponent(c.address):(c.lat+','+c.lng)).join('|');
+    window.open(`https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${waypoints}&travelmode=driving`,'_blank'); 
 }
 
 window.openInWaze = function() {
     if(lastRouteCoords.length < 2) return alert("Crea o carga una ruta");
+    if(!userMarker) return alert("No se pudo obtener tu ubicación");
+    const origin = userMarker.getLatLng();
     const dest = lastRouteClients[lastRouteClients.length - 1];
-    const url = `https://waze.com/ul?ll=${dest.lat},${dest.lng}&navigate=yes`;
+    const url = `https://waze.com/ul?ll=${dest.lat},${dest.lng}&navigate=yes&from=${origin.lat},${origin.lng}`;
     window.open(url, '_blank');
 }
 
@@ -346,7 +334,7 @@ async function showUserPosition() {
         const pos = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject));
         const lat = pos.coords.latitude, lng = pos.coords.longitude;
         if(userMarker) map.removeLayer(userMarker);
-        userMarker = L.marker([lat, lng], {icon: iconUser}).addTo(map).bindPopup("📍 Estás aquí").openPopup();
+        userMarker = L.marker([lat, lng], {icon: iconUser}).addTo(map).bindPopup("📍 Tú estás aquí").openPopup();
         map.setView([lat, lng], 13);
     } catch(e) { console.warn("GPS no disponible"); }
 }
