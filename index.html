@@ -141,161 +141,33 @@ function getClientIcon(cliente){
 let map = L.map('map').setView([40.4168,-3.7038],12);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-async function geocode(addr){ let res=await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr)}`); let data=await res.json(); return data.length>0 ? {lat:parseFloat(data[0].lat), lng:parseFloat(data[0].lon)} : null; }
+// 🟦 Marcador de ubicación en tiempo real con 📍
+let myLocationMarker;
+function trackMyLocation() {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.watchPosition(pos => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
 
-async function cargarClientes(){ 
-    const snapshot=await getDocs(coleccionClientes); 
-    clients=snapshot.docs.map(d=>({...d.data(),id:d.id})).filter(c=>c.name); 
-    clients.sort((a,b)=>a.name.localeCompare(b.name)); 
-    renderClientes(); 
-}
-
-async function cargarRutas(){ 
-    const snapshot=await getDocs(coleccionRutas); 
-    const container=document.getElementById('routeList'); container.innerHTML=""; 
-    snapshot.docs.forEach(docSnap => {
-        const r = docSnap.data();
-        let div=document.createElement('div'); div.className="routeItem";
-        div.innerHTML=`
-            <span>📅 ${r.date || 'Sin fecha'}</span> 
-            <div>
-                <button class="smallBtn" onclick="loadRoute('${docSnap.id}')">👁️ Ver</button>
-                <button class="smallBtn deleteBtn" onclick="deleteRoute('${docSnap.id}')">🗑️</button>
-            </div>`;
-        container.appendChild(div);
-    });
-}
-
-function renderClientes(){ 
-    const container=document.getElementById('clientList'); container.innerHTML=""; 
-    markers.forEach(m=>map.removeLayer(m)); markers=[]; 
-    
-    clients.forEach((c,i)=>{ 
-        let div=document.createElement('div'); div.className='client'; 
-        div.innerHTML=`
-            <div style="display:flex; align-items:center;">
-                <input type="checkbox" id="c${i}" data-id="${c.id}"> 
-                <div style="flex:1">
-                    <b>${c.name}</b><br><small>${c.address||'Sin dirección'}</small>
-                </div>
-            </div>
-            <div style="margin-top:8px">
-                <button class="smallBtn" onclick='editClient("${c.id}")'>✏️ Editar</button>
-                <button class="smallBtn deleteBtn" onclick='deleteClient("${c.id}")'>🗑️</button>
-            </div>`;
-        container.appendChild(div);
-
-        if(c.lat && c.lng){ 
-            const defaultIcon = getClientIcon(c);
-            let m = L.marker([c.lat,c.lng], {icon: defaultIcon}).addTo(map).bindPopup(c.name);
-            
-            const updateMarkerIcon = (checked) => { m.setIcon(checked ? iconPin : defaultIcon); };
-
-            m.on('click', () => { 
-                const cb = document.getElementById('c'+i); 
-                cb.checked = !cb.checked; 
-                updateMarkerIcon(cb.checked); 
-            });
-
-            setTimeout(() => {
-                const cb = document.getElementById('c'+i);
-                if(cb) cb.addEventListener('change', () => updateMarkerIcon(cb.checked));
-            }, 100);
-
-            markers.push(m);
+        if (!myLocationMarker) {
+            myLocationMarker = L.marker([lat, lng], { 
+                icon: L.divIcon({
+                    className: "my-location-pin",
+                    html: "📍",
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 30]
+                })
+            }).addTo(map).bindPopup("📍 Mi ubicación");
+        } else {
+            myLocationMarker.setLatLng([lat, lng]);
         }
-    }); 
-    document.getElementById('stats').innerHTML=clients.length; 
+    }, err => console.log(err), { enableHighAccuracy: true, maximumAge: 3000, timeout: 5000 });
 }
+trackMyLocation();
 
-window.editClient=function(id){ 
-    const c=clients.find(x=>x.id===id); if(!c) return;
-    editingClientId=id; 
-    document.getElementById('name').value=c.name||''; 
-    document.getElementById('address').value=c.address||''; 
-    document.getElementById('notes').value=c.notes||''; 
-    document.getElementById('lat').value=c.lat||''; 
-    document.getElementById('lng').value=c.lng||''; 
-    document.getElementById('btnAddClient').textContent = '💾 Guardar cambios'; 
-    window.scrollTo({top:0,behavior:'smooth'}); 
-}
+// ... El resto de todas tus funciones de clientes, rutas y navegación ...
 
-window.deleteClient=async function(id){ if(confirm("¿Borrar cliente?")) { await deleteDoc(doc(db,"clientes",id)); cargarClientes(); } };
-
-window.deleteRoute=async function(id){ if(confirm("¿Borrar esta ruta del historial?")) { await deleteDoc(doc(db,"rutas",id)); cargarRutas(); } };
-
-window.addClient=async function(){ 
-    const name=document.getElementById('name').value.trim(), address=document.getElementById('address').value.trim(), notes=document.getElementById('notes').value.trim(), latIn=document.getElementById('lat').value, lngIn=document.getElementById('lng').value;
-    if(!name) return alert("Pon nombre");
-    let lat, lng;
-    if(latIn && lngIn){ lat=parseFloat(latIn); lng=parseFloat(lngIn); }
-    else if(address){ const co=await geocode(address); if(!co) return alert("No encontrada"); lat=co.lat; lng=co.lng; }
-    else { try { const pos=await new Promise((r,j)=>navigator.geolocation.getCurrentPosition(r,j)); lat=pos.coords.latitude; lng=pos.coords.longitude; } catch(e){ return alert("GPS error"); } }
-    
-    try {
-        if(editingClientId){ 
-            await updateDoc(doc(db,"clientes",editingClientId),{name,address,lat,lng,notes}); 
-            editingClientId=null; 
-            document.getElementById('btnAddClient').textContent='➕ Guardar cliente';
-        } else { 
-            await addDoc(coleccionClientes,{name,address,lat,lng,notes}); 
-        }
-        document.getElementById('name').value=""; document.getElementById('address').value=""; document.getElementById('notes').value=""; document.getElementById('lat').value=""; document.getElementById('lng').value="";
-        cargarClientes();
-    } catch(e) { alert("Error: " + e.message); }
-}
-
-window.createRoute=async function(){ 
-    let sel=clients.filter((c,i)=>document.getElementById('c'+i)?.checked); 
-    if(sel.length<1) return alert("Selecciona clientes"); 
-    currentStartOption = document.getElementById('startOption').value;
-    let sLat, sLng;
-    if(currentStartOption==="gps"){ try { const p=await new Promise((r,j)=>navigator.geolocation.getCurrentPosition(r,j)); sLat=p.coords.latitude; sLng=p.coords.longitude; } catch(e){ return alert("GPS error"); } }
-    else { let ad=document.getElementById('startAddress').value.trim(); if(!ad) return alert("Salida vacía"); const c=await geocode(ad); if(!c) return alert("No válida"); sLat=c.lat; sLng=c.lng; }
-    lastRouteCoords=[[sLat,sLng],...sel.map(c=>[c.lat,c.lng])];
-    lastRouteClients=sel;
-    await addDoc(coleccionRutas,{date:document.getElementById('routeDate').value, clients:sel.map(c=>c.id), start:{lat:sLat,lng:sLng}, mode:currentStartOption});
-    cargarRutas();
-    drawRoute(lastRouteCoords);
-}
-
-function drawRoute(coords){ 
-    if(routeLine) map.removeLayer(routeLine); redMarkers.forEach(m=>map.removeLayer(m)); redMarkers=[];
-    const str=coords.map(c=>c[1]+","+c[0]).join(";");
-    fetch(`https://router.project-osrm.org/trip/v1/driving/${str}?source=first&roundtrip=false&overview=full&geometries=geojson`).then(r=>r.json()).then(d=>{
-        if(!d.trips) return;
-        routeLine=L.geoJSON(d.trips[0].geometry,{style:{color:'#0ea5e9',weight:5}}).addTo(map); map.fitBounds(routeLine.getBounds());
-        coords.slice(1).forEach(c=>{ redMarkers.push(L.circleMarker(c,{radius:6,color:'red',fillOpacity:1}).addTo(map)); });
-    });
-}
-
-window.loadRoute=async function(id){ 
-    const sn=await getDocs(coleccionRutas); const rd=sn.docs.find(d=>d.id===id); if(!rd)return;
-    const d=rd.data(); 
-    
-    clients.forEach((c, i) => {
-        const cb = document.getElementById('c'+i);
-        if(cb) cb.checked = false;
-    });
-
-    lastRouteClients = clients.filter(c => {
-        const isIncluded = d.clients.includes(c.id);
-        if(isIncluded) {
-            const idx = clients.indexOf(c);
-            const cb = document.getElementById('c'+idx);
-            if(cb) {
-                cb.checked = true;
-                markers[idx].setIcon(iconPin);
-            }
-        }
-        return isIncluded;
-    });
-
-    currentStartOption = d.mode || "gps";
-    lastRouteCoords=[[d.start.lat,d.start.lng],...lastRouteClients.map(c=>[c.lat,c.lng])];
-    drawRoute(lastRouteCoords);
-}
-
+// Función Google Maps
 window.openInGoogleMaps=function(){ 
     if(lastRouteCoords.length<2) return alert("Crea o carga una ruta"); 
     let origin = (currentStartOption === "gps") ? "" : lastRouteCoords[0].join(',');
@@ -305,7 +177,7 @@ window.openInGoogleMaps=function(){
     window.open(`https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${waypoints}&travelmode=driving`,'_blank'); 
 }
 
-// 🟦 NUEVA FUNCIÓN PARA WAZE
+// Función Waze
 window.openInWaze = function(){
     if(lastRouteCoords.length < 2) return alert("Crea o carga una ruta");
     let dest = lastRouteClients[lastRouteClients.length - 1];
@@ -314,19 +186,15 @@ window.openInWaze = function(){
     window.open(`https://waze.com/ul?ll=${lat},${lng}&navigate=yes`, '_blank');
 }
 
-window.login=async function(){ 
-    try { await signInWithEmailAndPassword(auth,document.getElementById('email').value,document.getElementById('password').value); alert("Login OK"); cargarClientes(); cargarRutas(); } catch(e){ alert("Error: "+e.message); }
-}
-
 document.addEventListener("DOMContentLoaded",()=>{
-    document.getElementById('btnLogin').addEventListener('click',login);
-    document.getElementById('btnAddClient').addEventListener('click',addClient);
-    document.getElementById('btnCreateRoute').addEventListener('click',createRoute);
+    document.getElementById('btnLogin').addEventListener('click',window.login);
+    document.getElementById('btnAddClient').addEventListener('click',window.addClient);
+    document.getElementById('btnCreateRoute').addEventListener('click',window.createRoute);
     document.getElementById('btnGoogleMaps').addEventListener('click',window.openInGoogleMaps);
-    document.getElementById('btnWaze').addEventListener('click', window.openInWaze); // 🟦 Listener Waze
+    document.getElementById('btnWaze').addEventListener('click', window.openInWaze);
     document.getElementById('btnClearRoute').addEventListener('click',()=>{ if(routeLine)map.removeLayer(routeLine); redMarkers.forEach(m=>map.removeLayer(m)); });
     document.getElementById('startOption').addEventListener('change',e=>document.getElementById('startAddress').style.display=e.target.value==="manual"?"block":"none");
-    cargarClientes(); cargarRutas();
+    window.cargarClientes(); window.cargarRutas();
 });
 </script>
 </body>
