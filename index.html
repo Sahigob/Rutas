@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8" />
-<title>Rutas Comerciales PRO v2.4</title>
+<title>Rutas Comerciales PRO v2.4 - Edición Inline</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
@@ -40,12 +40,14 @@ button:active { transform: scale(0.98); }
 .smallBtn { padding:6px 12px; font-size:12px; margin: 4px 2px; width: auto; display: inline-flex; }
 .deleteBtn { background:#ef4444; }
 .deleteBtn:hover { background:#dc2626; }
+.saveBtn { background: #22c55e; }
 
 input, select, textarea { 
   width:100%; margin:8px 0; padding:12px; border-radius:10px; border:1px solid var(--border); box-sizing: border-box; font-size: 14px; 
 }
 
 .client { padding:12px; border: 1px solid var(--border); background: white; margin-bottom: 8px; border-radius: 10px; }
+.edit-mode { border: 2px solid var(--primary); background: #f0f9ff; }
 .stats-badge { background: #e0f2fe; color: #0369a1; padding: 4px 12px; border-radius: 20px; font-size: 0.85rem; }
 label { font-weight: 600; font-size: 13px; margin-bottom: 4px; display: block; }
 input[type="checkbox"] { width: auto; transform: scale(1.4); margin-right: 12px; cursor: pointer; }
@@ -170,16 +172,35 @@ function renderClientes(){
     markers.forEach(m=>map.removeLayer(m)); markers=[]; 
     clients.forEach((c,i)=>{ 
         let div=document.createElement('div'); div.className='client'; 
-        div.innerHTML=`<div style="display:flex; align-items:center;">
-                <input type="checkbox" id="c${i}" data-id="${c.id}"> 
-                <div style="flex:1">
-                    <b>${c.name}</b><br><small>${c.address||'Sin dirección'}</small>
+        
+        if(editingClientId === c.id) {
+            // VISTA EDICIÓN INLINE
+            div.classList.add('edit-mode');
+            div.innerHTML = `
+                <input id="edit_name" value="${c.name||''}" placeholder="Nombre" />
+                <input id="edit_address" value="${c.address||''}" placeholder="Dirección" />
+                <textarea id="edit_notes" rows="2" placeholder="Notas">${c.notes||''}</textarea>
+                <div style="display:flex; gap:4px">
+                    <input id="edit_lat" value="${c.lat||''}" placeholder="Lat" />
+                    <input id="edit_lng" value="${c.lng||''}" placeholder="Lng" />
                 </div>
-            </div>
-            <div style="margin-top:8px">
-                <button class="smallBtn" onclick='editClient("${c.id}")'>✏️ Editar</button>
-                <button class="smallBtn deleteBtn" onclick='deleteClient("${c.id}")'>🗑️</button>
-            </div>`;
+                <div style="display:flex; gap:8px; margin-top:8px">
+                    <button class="smallBtn saveBtn" onclick="saveEditClient('${c.id}')">💾 Guardar</button>
+                    <button class="smallBtn" style="background:#64748b" onclick="cancelEdit()">❌</button>
+                </div>`;
+        } else {
+            // VISTA NORMAL
+            div.innerHTML=`<div style="display:flex; align-items:center;">
+                    <input type="checkbox" id="c${i}" data-id="${c.id}"> 
+                    <div style="flex:1">
+                        <b>${c.name}</b><br><small>${c.address||'Sin dirección'}</small>
+                    </div>
+                </div>
+                <div style="margin-top:8px">
+                    <button class="smallBtn" onclick='editClient("${c.id}")'>✏️ Editar</button>
+                    <button class="smallBtn deleteBtn" onclick='deleteClient("${c.id}")'>🗑️</button>
+                </div>`;
+        }
         container.appendChild(div);
 
         if(c.lat && c.lng){ 
@@ -201,16 +222,34 @@ function renderClientes(){
     document.getElementById('stats').innerHTML=clients.length; 
 }
 
+// FUNCIONES DE EDICIÓN MODIFICADAS
 window.editClient=function(id){ 
-    const c=clients.find(x=>x.id===id); if(!c) return;
-    editingClientId=id; 
-    document.getElementById('name').value=c.name||''; 
-    document.getElementById('address').value=c.address||''; 
-    document.getElementById('notes').value=c.notes||''; 
-    document.getElementById('lat').value=c.lat||''; 
-    document.getElementById('lng').value=c.lng||''; 
-    document.getElementById('btnAddClient').textContent = '💾 Guardar cambios'; 
-    window.scrollTo({top:0,behavior:'smooth'}); 
+    editingClientId = id;
+    renderClientes(); // Redibujamos para mostrar el formulario inline
+}
+
+window.cancelEdit=function(){
+    editingClientId = null;
+    renderClientes();
+}
+
+window.saveEditClient=async function(id){
+    const name = document.getElementById('edit_name').value.trim();
+    const address = document.getElementById('edit_address').value.trim();
+    const notes = document.getElementById('edit_notes').value.trim();
+    const latIn = document.getElementById('edit_lat').value;
+    const lngIn = document.getElementById('edit_lng').value;
+
+    if(!name) return alert("Pon nombre");
+    let lat, lng;
+    if(latIn && lngIn){ lat=parseFloat(latIn); lng=parseFloat(lngIn); }
+    else if(address){ const co=await geocode(address); if(!co) return alert("No encontrada"); lat=co.lat; lng=co.lng; }
+    
+    try {
+        await updateDoc(doc(db,"clientes",id),{name,address,lat,lng,notes}); 
+        editingClientId = null;
+        cargarClientes();
+    } catch(e) { alert("Error: " + e.message); }
 }
 
 window.deleteClient=async function(id){ if(confirm("¿Borrar cliente?")) { await deleteDoc(doc(db,"clientes",id)); cargarClientes(); } };
@@ -224,13 +263,7 @@ window.addClient=async function(){
     else if(address){ const co=await geocode(address); if(!co) return alert("No encontrada"); lat=co.lat; lng=co.lng; }
     else { try { const pos=await new Promise((r,j)=>navigator.geolocation.getCurrentPosition(r,j)); lat=pos.coords.latitude; lng=pos.coords.longitude; } catch(e){ return alert("GPS error"); } }
     try {
-        if(editingClientId){ 
-            await updateDoc(doc(db,"clientes",editingClientId),{name,address,lat,lng,notes}); 
-            editingClientId=null; 
-            document.getElementById('btnAddClient').textContent='➕ Guardar cliente';
-        } else { 
-            await addDoc(coleccionClientes,{name,address,lat,lng,notes}); 
-        }
+        await addDoc(coleccionClientes,{name,address,lat,lng,notes}); 
         document.getElementById('name').value=""; document.getElementById('address').value=""; document.getElementById('notes').value=""; document.getElementById('lat').value=""; document.getElementById('lng').value="";
         cargarClientes();
     } catch(e) { alert("Error: " + e.message); }
@@ -292,15 +325,12 @@ window.openInGoogleMaps=function(){
     window.open(`https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${waypoints}&travelmode=driving`,'_blank'); 
 }
 
-// NUEVO: Abrir Waze
 window.openInWaze = function() {
     if(lastRouteCoords.length < 2) return alert("Crea o carga una ruta");
     if(!userMarker) return alert("No se pudo obtener tu ubicación");
-    
     const origin = userMarker.getLatLng();
     const dest = lastRouteClients[lastRouteClients.length - 1];
     if(!dest.lat || !dest.lng) return alert("El destino necesita lat/lng para Waze");
-
     const url = `https://waze.com/ul?ll=${dest.lat},${dest.lng}&navigate=yes&from=${origin.lat},${origin.lng}`;
     window.open(url, '_blank');
 }
@@ -312,16 +342,11 @@ window.login=async function(){
 let userMarker = null;
 async function showUserPosition() {
     try {
-        const pos = await new Promise((resolve, reject) =>
-            navigator.geolocation.getCurrentPosition(resolve, reject)
-        );
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-
+        const pos = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject));
+        const lat = pos.coords.latitude; const lng = pos.coords.longitude;
         if(userMarker) map.removeLayer(userMarker);
         userMarker = L.marker([lat, lng], {icon: iconUser}).addTo(map).bindPopup("📍 Tú estás aquí").openPopup();
         map.setView([lat, lng], 13);
-
     } catch(e) { console.warn("No se pudo obtener la ubicación: ", e); }
 }
 
