@@ -97,7 +97,8 @@ input[type="checkbox"] { width: auto; transform: scale(1.4); margin-right: 12px;
 
   <div class="card">
     <h3>🚗 Navegación</h3>
-    <button id="btnGoogleMaps" style="background: #22c55e;">🌐 Abrir Google Maps</button>
+    <button id="btnGoogleMaps" style="background: #22c55e;">🌐 Google Maps</button>
+    <button id="btnWaze" style="background: #33ccff;">🚙 Waze</button>
     <button id="btnClearRoute" style="background: #64748b;">🧹 Limpiar mapa</button>
   </div>
 
@@ -272,13 +273,11 @@ window.loadRoute=async function(id){
     const sn=await getDocs(coleccionRutas); const rd=sn.docs.find(d=>d.id===id); if(!rd)return;
     const d=rd.data(); 
     
-    // 1. Limpiar todos los checkboxes primero
     clients.forEach((c, i) => {
         const cb = document.getElementById('c'+i);
         if(cb) cb.checked = false;
     });
 
-    // 2. Marcar solo los de la ruta
     lastRouteClients = clients.filter(c => {
         const isIncluded = d.clients.includes(c.id);
         if(isIncluded) {
@@ -286,7 +285,6 @@ window.loadRoute=async function(id){
             const cb = document.getElementById('c'+idx);
             if(cb) {
                 cb.checked = true;
-                // Forzar actualización del icono en el mapa
                 markers[idx].setIcon(iconPin);
             }
         }
@@ -307,6 +305,14 @@ window.openInGoogleMaps=function(){
     window.open(`https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${waypoints}&travelmode=driving`,'_blank'); 
 }
 
+window.openInWaze=function(){
+    if(lastRouteCoords.length<2) return alert("Crea o carga una ruta");
+    // Waze maneja mejor un destino final directo.
+    let dest = lastRouteClients[lastRouteClients.length-1];
+    let url = `https://waze.com/ul?ll=${dest.lat},${dest.lng}&navigate=yes`;
+    window.open(url, '_blank');
+}
+
 window.login=async function(){ 
     try { await signInWithEmailAndPassword(auth,document.getElementById('email').value,document.getElementById('password').value); alert("Login OK"); cargarClientes(); cargarRutas(); } catch(e){ alert("Error: "+e.message); }
 }
@@ -316,6 +322,7 @@ document.addEventListener("DOMContentLoaded",()=>{
     document.getElementById('btnAddClient').addEventListener('click',addClient);
     document.getElementById('btnCreateRoute').addEventListener('click',createRoute);
     document.getElementById('btnGoogleMaps').addEventListener('click',window.openInGoogleMaps);
+    document.getElementById('btnWaze').addEventListener('click',window.openInWaze);
     document.getElementById('btnClearRoute').addEventListener('click',()=>{ if(routeLine)map.removeLayer(routeLine); redMarkers.forEach(m=>map.removeLayer(m)); });
     document.getElementById('startOption').addEventListener('change',e=>document.getElementById('startAddress').style.display=e.target.value==="manual"?"block":"none");
     cargarClientes(); cargarRutas();
