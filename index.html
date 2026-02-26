@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8" />
-<title>Rutas Comerciales PRO v2.5</title>
+<title>Rutas Comerciales PRO v2.4</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
@@ -96,9 +96,8 @@ input[type="checkbox"] { width: auto; transform: scale(1.4); margin-right: 12px;
   </div>
 
   <div class="card">
-    <h3>🚀 Navegación</h3>
+    <h3>🚗 Navegación</h3>
     <button id="btnGoogleMaps" style="background: #22c55e;">🌐 Abrir Google Maps</button>
-    <button id="btnWaze" style="background: #33ccff;">🚙 Abrir en Waze</button>
     <button id="btnClearRoute" style="background: #64748b;">🧹 Limpiar mapa</button>
   </div>
 
@@ -272,39 +271,40 @@ function drawRoute(coords){
 window.loadRoute=async function(id){ 
     const sn=await getDocs(coleccionRutas); const rd=sn.docs.find(d=>d.id===id); if(!rd)return;
     const d=rd.data(); 
+    
+    // 1. Limpiar todos los checkboxes primero
     clients.forEach((c, i) => {
         const cb = document.getElementById('c'+i);
         if(cb) cb.checked = false;
     });
+
+    // 2. Marcar solo los de la ruta
     lastRouteClients = clients.filter(c => {
         const isIncluded = d.clients.includes(c.id);
         if(isIncluded) {
             const idx = clients.indexOf(c);
             const cb = document.getElementById('c'+idx);
-            if(cb) { cb.checked = true; markers[idx].setIcon(iconPin); }
+            if(cb) {
+                cb.checked = true;
+                // Forzar actualización del icono en el mapa
+                markers[idx].setIcon(iconPin);
+            }
         }
         return isIncluded;
     });
+
     currentStartOption = d.mode || "gps";
     lastRouteCoords=[[d.start.lat,d.start.lng],...lastRouteClients.map(c=>[c.lat,c.lng])];
     drawRoute(lastRouteCoords);
 }
 
 window.openInGoogleMaps=function(){ 
-    if(lastRouteCoords.length<2) return alert("Carga una ruta"); 
+    if(lastRouteCoords.length<2) return alert("Crea o carga una ruta"); 
     let origin = (currentStartOption === "gps") ? "" : lastRouteCoords[0].join(',');
     let dest = lastRouteClients[lastRouteClients.length-1];
     let destination = dest.address ? encodeURIComponent(dest.address) : (dest.lat+','+dest.lng);
     let waypoints = lastRouteClients.slice(0,-1).map(c=>c.address?encodeURIComponent(c.address):(c.lat+','+c.lng)).join('|');
-    // RESTAURADO: Tu URL original que funcionaba perfecto
     window.open(`https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${waypoints}&travelmode=driving`,'_blank'); 
-}
-
-window.openInWaze=function(){
-    if(lastRouteCoords.length<2) return alert("Carga una ruta");
-    let dest = lastRouteClients[0]; 
-    let url = `https://waze.com/ul?ll=${dest.lat},${dest.lng}&navigate=yes`;
-    window.open(url, '_blank');
 }
 
 window.login=async function(){ 
@@ -316,7 +316,6 @@ document.addEventListener("DOMContentLoaded",()=>{
     document.getElementById('btnAddClient').addEventListener('click',addClient);
     document.getElementById('btnCreateRoute').addEventListener('click',createRoute);
     document.getElementById('btnGoogleMaps').addEventListener('click',window.openInGoogleMaps);
-    document.getElementById('btnWaze').addEventListener('click',window.openInWaze);
     document.getElementById('btnClearRoute').addEventListener('click',()=>{ if(routeLine)map.removeLayer(routeLine); redMarkers.forEach(m=>map.removeLayer(m)); });
     document.getElementById('startOption').addEventListener('change',e=>document.getElementById('startAddress').style.display=e.target.value==="manual"?"block":"none");
     cargarClientes(); cargarRutas();
