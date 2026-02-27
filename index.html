@@ -5,6 +5,7 @@
 <title>Rutas Comerciales PRO v2.4 - Edición Inline</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
 <style>
 :root {
   --primary: #0ea5e9;
@@ -36,6 +37,17 @@ button {
 }
 button:hover { background: var(--primary-dark); }
 button:active { transform: scale(0.98); }
+
+/* Estilos para el nuevo botón de ruta estricta */
+#btnRutaOrdenEstricto {
+    background-color: #ffc107;
+    border-color: #ffc107;
+    color: #212529;
+}
+#btnRutaOrdenEstricto:hover {
+    background-color: #e0a800;
+    border-color: #d39e00;
+}
 
 .smallBtn { padding:6px 12px; font-size:12px; margin: 4px 2px; width: auto; display: inline-flex; }
 .deleteBtn { background:#ef4444; }
@@ -99,7 +111,10 @@ input[type="checkbox"] { width: auto; transform: scale(1.4); margin-right: 12px;
 
   <div class="card">
     <h3>🚗 Navegación</h3>
-    <button id="btnGoogleMaps" style="background: #22c55e;">🌐 Abrir Google Maps</button>
+    <button id="btnGoogleMaps" style="background: #22c55e;">🌐 Google (Optimizado)</button>
+    <button id="btnRutaOrdenEstricto">
+        <i class="fas fa-route"></i> Ruta Google (Orden Exacto)
+    </button>
     <button id="btnWaze" style="background: #1e40af;">🛣️ Abrir Waze</button>
     <button id="btnClearRoute" style="background: #64748b;">🧹 Limpiar mapa</button>
   </div>
@@ -325,6 +340,27 @@ window.openInGoogleMaps=function(){
     window.open(`https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${waypoints}&travelmode=driving`,'_blank'); 
 }
 
+// Nueva función integrada para enviar ruta a Google Maps respetando el orden exacto
+window.enviarRutaGoogleOrdenEstricto = function() {
+    if (lastRouteCoords.length < 2) {
+        alert('Crea o carga una ruta primero');
+        return;
+    }
+
+    // Base de la URL para rutas secuenciales
+    let urlGoogleMaps = 'https://www.google.com/maps/dir';
+    
+    // Añadir cada parada en el orden exacto de lastRouteCoords
+    lastRouteCoords.forEach((coord) => {
+        urlGoogleMaps += `/${coord[0]},${coord[1]}`;
+    });
+    
+    // Parámetros para evitar optimización y fijar modo conducción
+    urlGoogleMaps += '/data=!4m2!4m1!3e0';
+    
+    window.open(urlGoogleMaps, '_blank');
+}
+
 window.openInWaze = function() {
     if(lastRouteCoords.length < 2) return alert("Crea o carga una ruta");
     if(!userMarker) return alert("No se pudo obtener tu ubicación");
@@ -355,6 +391,10 @@ document.addEventListener("DOMContentLoaded",()=>{
     document.getElementById('btnAddClient').addEventListener('click',addClient);
     document.getElementById('btnCreateRoute').addEventListener('click',createRoute);
     document.getElementById('btnGoogleMaps').addEventListener('click',window.openInGoogleMaps);
+    
+    // Asignación del nuevo evento para Orden Estricto
+    document.getElementById('btnRutaOrdenEstricto').addEventListener('click', window.enviarRutaGoogleOrdenEstricto);
+    
     document.getElementById('btnWaze').addEventListener('click',window.openInWaze);
     document.getElementById('btnClearRoute').addEventListener('click',()=>{ if(routeLine)map.removeLayer(routeLine); redMarkers.forEach(m=>map.removeLayer(m)); });
     document.getElementById('startOption').addEventListener('change',e=>document.getElementById('startAddress').style.display=e.target.value==="manual"?"block":"none");
