@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8" />
-<title>Rutas Comerciales PRO v2.4 - Corregido</title>
+<title>Rutas Comerciales PRO v2.4 - Icono Peaje</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
@@ -81,7 +81,7 @@ input[type="checkbox"] { width: auto; transform: scale(1.4); margin-right: 12px;
     <h3>👥 Gestión de Cliente</h3>
     <input id="name" placeholder="Nombre cliente" />
     <input id="address" placeholder="Dirección manual (Calle, Número, Ciudad)" />
-    <textarea id="notes" placeholder="Notas (ej: Hotel, Restaurante...)" rows="2"></textarea>
+    <textarea id="notes" placeholder="Notas (ej: peaje, restaurante...)" rows="2"></textarea>
     <div style="display:flex; gap:8px">
         <input id="lat" placeholder="Latitud" />
         <input id="lng" placeholder="Longitud" />
@@ -132,23 +132,23 @@ const coleccionRutas = collection(db,"rutas");
 let clients=[], markers=[], redMarkers=[], routeLine, lastRouteCoords=[], lastRouteClients=[];
 let editingClientId = null, currentStartOption = "gps";
 
+// ICONOS PERSONALIZADOS
 const iconNormal = new L.Icon({ iconUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png", shadowUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png", iconSize:[25,41], iconAnchor:[12,41] });
 const iconFood = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/3448/3448609.png", iconSize:[38,38], iconAnchor:[19,38] });
 const iconHotel = new L.Icon({ 
     iconUrl: "data:image/svg+xml;base64," + btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 38 38"><circle cx="19" cy="19" r="18" fill="#ff9900" stroke="white" stroke-width="2"/><text x="50%" y="55%" font-size="18" text-anchor="middle" fill="black" font-family="Arial" font-weight="bold" dominant-baseline="middle">H</text></svg>`), 
     iconSize:[38,38], iconAnchor:[19,38] 
 });
-// --- NUEVO ICONO DE PEAJE AÑADIDO AQUÍ ---
-const iconToll = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/4814/4814914.png", iconSize:[38,38], iconAnchor:[19,38] });
-// ----------------------------------------
+// NUEVO: ICONO PEAJE
+const iconPeaje = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/4814/4814914.png", iconSize:[38,38], iconAnchor:[19,38] });
+
 const iconPin = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/684/684908.png", iconSize:[32,32], iconAnchor:[16,32] });
 const iconUser = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/684/684908.png", iconSize:[40,40], iconAnchor:[20,40] });
 
 function getClientIcon(cliente){
   const text=(cliente.notes||"").toLowerCase();
-  // --- LÓGICA DE DETECCIÓN DE PEAJE AÑADIDA AQUÍ ---
-  if(text.includes("peaje")) return iconToll;
-  // ------------------------------------------------
+  // LÓGICA DE ICONOS POR NOTAS
+  if(text.includes("peaje")) return iconPeaje;
   if(text.includes("comida")||text.includes("bar")||text.includes("restaurante")) return iconFood;
   if(text.includes("hotel")||text.includes("hostal")||text.includes("dormir")) return iconHotel;
   return iconNormal;
@@ -342,22 +342,16 @@ window.loadRoute=async function(id){
 
 function getGoogleMapsUrl() {
     if (lastRouteClients.length < 2) return null;
-
     const origin = (currentStartOption === "gps") ? "" : encodeURIComponent(lastRouteClients[0].address || `${lastRouteClients[0].lat},${lastRouteClients[0].lng}`);
-    
     const lastIdx = lastRouteClients.length - 1;
     const destClient = lastRouteClients[lastIdx];
-    const destination = (destClient.address && destClient.address.trim() !== "") 
-        ? encodeURIComponent(destClient.address) 
-        : `${destClient.lat},${destClient.lng}`;
-    
+    const destination = (destClient.address && destClient.address.trim() !== "") ? encodeURIComponent(destClient.address) : `${destClient.lat},${destClient.lng}`;
     let waypoints = "";
     if (lastRouteClients.length > 2) {
         waypoints = lastRouteClients.slice(1, -1).map(c => {
             return (c.address && c.address.trim() !== "") ? encodeURIComponent(c.address) : `${c.lat},${c.lng}`;
         }).join('|');
     }
-
     return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${waypoints}&travelmode=driving`;
 }
 
@@ -405,7 +399,6 @@ document.addEventListener("DOMContentLoaded",()=>{
     document.getElementById('btnClearRoute').addEventListener('click',()=>{ 
         if(routeLine)map.removeLayer(routeLine); 
         redMarkers.forEach(m=>map.removeLayer(m));
-        if(document.getElementById('debugOrder')) document.getElementById('debugOrder').style.display = "none";
     });
     document.getElementById('startOption').addEventListener('change',e=>document.getElementById('startAddress').style.display=e.target.value==="manual"?"block":"none");
     cargarClientes(); 
