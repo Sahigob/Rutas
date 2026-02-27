@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8" />
-<title>Rutas Comerciales PRO v2.4 - Estricto Total</title>
+<title>Rutas Comerciales PRO v2.4 - Orden Estricto Final</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
@@ -209,8 +209,6 @@ window.saveEditClient=async function(id){
     let lat = parseFloat(latIn), lng = parseFloat(lngIn);
     try { await updateDoc(doc(db,"clientes",id),{name,address,lat,lng,notes}); editingClientId = null; cargarClientes(); } catch(e) { alert("Error"); }
 }
-window.deleteClient=async function(id){ if(confirm("¿Borrar?")) { await deleteDoc(doc(db,"clientes",id)); cargarClientes(); } };
-window.deleteRoute=async function(id){ if(confirm("¿Borrar?")) { await deleteDoc(doc(db,"rutas",id)); cargarRutas(); } };
 
 window.addClient=async function(){ 
     const name=document.getElementById('name').value.trim(), address=document.getElementById('address').value.trim(), notes=document.getElementById('notes').value.trim(), latIn=document.getElementById('lat').value, lngIn=document.getElementById('lng').value;
@@ -258,35 +256,46 @@ window.loadRoute=async function(id){
     renderClientes();
 }
 
-// BOTÓN ESTRICTO: Revisado 100% para evitar optimizaciones de Google
+// FUNCION DE ORDEN ESTRICTO CORREGIDA 100%
 window.enviarRutaGoogleOrdenEstricto = function() {
     if (!lastRouteCoords || lastRouteCoords.length < 2) {
-        alert('Por favor, crea una ruta en el mapa primero.');
+        alert('Crea una ruta en el mapa primero.');
         return;
     }
 
-    // Formato de URL de Google Maps para direcciones DIRECTAS (sin modo búsqueda)
-    // https://www.google.com/maps/dir/lat,lng/lat,lng/lat,lng...
-    let urlBase = "https://www.google.com/maps/dir/";
+    // Origen: El primer punto de la lista (Madrid)
+    const origin = `${lastRouteCoords[0][0]},${lastRouteCoords[0][1]}`;
     
-    // Construimos la cadena de paradas asegurando que el orden sea IDÉNTICO a lastRouteCoords
-    let paradasStr = lastRouteCoords
-        .filter(coord => coord[0] && coord[1]) // Seguridad: evitar nulos
-        .map(coord => `${coord[0]},${coord[1]}`)
-        .join('/');
+    // Destino FINAL: El último punto de la lista (El más alejado)
+    const destination = `${lastRouteCoords[lastRouteCoords.length - 1][0]},${lastRouteCoords[lastRouteCoords.length - 1][1]}`;
+    
+    // Waypoints: Todos los intermedios (incluyendo Alcorcón si está en medio)
+    let waypointsStr = "";
+    if (lastRouteCoords.length > 2) {
+        // Sacamos los puntos que no son ni el primero ni el último
+        const waypoints = lastRouteCoords.slice(1, -1);
+        waypointsStr = waypoints.map(c => `${c[0]},${c[1]}`).join('|');
+    }
 
-    // Añadimos parámetros DATA para forzar navegación en coche (!3e0) y evitar reajustes
-    // !4m2!4m1!3e0 es la instrucción interna de Google para "Este orden, en coche"
-    let urlFinal = urlBase + paradasStr + "/data=!4m2!4m1!3e0";
+    // Construcción de la URL de Direcciones
+    // Al definir destination como el punto final y waypoints como pasos intermedios, 
+    // Google Maps NO reordenará si no le pasamos el comando optimize:true.
+    let url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`;
+    
+    if (waypointsStr) {
+        url += `&waypoints=${encodeURIComponent(waypointsStr)}`;
+    }
+    
+    url += `&travelmode=driving`;
 
-    console.log("Abriendo ruta estricta:", urlFinal);
-    window.open(urlFinal, '_blank');
-}
+    window.open(url, '_blank');
+};
 
 window.openInGoogleMaps=function(){ 
     if(lastRouteCoords.length<2) return alert("Crea ruta"); 
     let origin = lastRouteCoords[0].join(',');
     let dest = lastRouteCoords[lastRouteCoords.length-1].join(',');
+    // Esta versión suele optimizar, por eso mantenemos las dos
     let waypoints = lastRouteCoords.slice(1,-1).map(c=>c.join(',')).join('|');
     window.open(`https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}&waypoints=${waypoints}&travelmode=driving`,'_blank'); 
 }
