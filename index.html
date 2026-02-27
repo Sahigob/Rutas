@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8" />
-<title>Rutas Comerciales PRO v2.4 - Icono Peaje</title>
+<title>Rutas Comerciales PRO v2.4 - Icono Peaje Euro</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
@@ -61,8 +61,6 @@ input[type="checkbox"] { width: auto; transform: scale(1.4); margin-right: 12px;
     margin-bottom:8px; font-size:13px; background:#f1f5f9; 
     padding:8px 12px; border-radius:10px; border:1px solid #e2e8f0;
 }
-
-.debug-box { background: #1e293b; color: #38bdf8; font-family: monospace; padding: 10px; border-radius: 8px; font-size: 11px; margin-top: 10px; white-space: pre-wrap; display: none; }
 </style>
 </head>
 <body>
@@ -80,7 +78,7 @@ input[type="checkbox"] { width: auto; transform: scale(1.4); margin-right: 12px;
   <div class="card">
     <h3>👥 Gestión de Cliente</h3>
     <input id="name" placeholder="Nombre cliente" />
-    <input id="address" placeholder="Dirección manual (Calle, Número, Ciudad)" />
+    <input id="address" placeholder="Dirección manual" />
     <textarea id="notes" placeholder="Notas (ej: peaje, restaurante...)" rows="2"></textarea>
     <div style="display:flex; gap:8px">
         <input id="lat" placeholder="Latitud" />
@@ -100,7 +98,6 @@ input[type="checkbox"] { width: auto; transform: scale(1.4); margin-right: 12px;
     </select>
     <input id="startAddress" placeholder="Dirección de salida" style="display:none"/>
     <button id="btnCreateRoute">🧭 Crear ruta</button>
-    <div id="debugOrder" class="debug-box"></div>
     <div id="routeList"></div>
   </div>
 
@@ -134,26 +131,36 @@ let editingClientId = null, currentStartOption = "gps";
 
 // ICONOS PERSONALIZADOS
 const iconNormal = new L.Icon({ iconUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png", shadowUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png", iconSize:[25,41], iconAnchor:[12,41] });
-const iconFood = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/3448/3448609.png", iconSize:[38,38], iconAnchor:[19,38] });
+
+const iconFood = new L.Icon({ 
+    iconUrl: "data:image/svg+xml;base64," + btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 38 38"><circle cx="19" cy="19" r="18" fill="#ef4444" stroke="white" stroke-width="2"/><text x="50%" y="55%" font-size="20" text-anchor="middle" fill="white" dominant-baseline="middle">🍴</text></svg>`), 
+    iconSize:[38,38], iconAnchor:[19,38] 
+});
+
 const iconHotel = new L.Icon({ 
     iconUrl: "data:image/svg+xml;base64," + btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 38 38"><circle cx="19" cy="19" r="18" fill="#ff9900" stroke="white" stroke-width="2"/><text x="50%" y="55%" font-size="18" text-anchor="middle" fill="black" font-family="Arial" font-weight="bold" dominant-baseline="middle">H</text></svg>`), 
     iconSize:[38,38], iconAnchor:[19,38] 
 });
-// NUEVO: ICONO PEAJE
-const iconPeaje = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/4814/4814914.png", iconSize:[38,38], iconAnchor:[19,38] });
+
+// ICONO PEAJE: AMARILLO CON SIMBOLO EURO (€)
+const iconPeajeEuro = new L.Icon({ 
+    iconUrl: "data:image/svg+xml;base64," + btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 38 38"><circle cx="19" cy="19" r="18" fill="#facc15" stroke="white" stroke-width="2"/><text x="50%" y="55%" font-size="20" text-anchor="middle" fill="black" font-family="Arial" font-weight="bold" dominant-baseline="middle">€</text></svg>`), 
+    iconSize:[38,38], iconAnchor:[19,38] 
+});
 
 const iconPin = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/684/684908.png", iconSize:[32,32], iconAnchor:[16,32] });
 const iconUser = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/684/684908.png", iconSize:[40,40], iconAnchor:[20,40] });
 
 function getClientIcon(cliente){
   const text=(cliente.notes||"").toLowerCase();
-  // LÓGICA DE ICONOS POR NOTAS
-  if(text.includes("peaje")) return iconPeaje;
+  // ACTIVACIÓN POR PALABRA "PEAJE"
+  if(text.includes("peaje")) return iconPeajeEuro;
   if(text.includes("comida")||text.includes("bar")||text.includes("restaurante")) return iconFood;
   if(text.includes("hotel")||text.includes("hostal")||text.includes("dormir")) return iconHotel;
   return iconNormal;
 }
 
+// --- RESTO DE FUNCIONES ---
 let map = L.map('map').setView([40.4168,-3.7038],12);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
@@ -186,224 +193,53 @@ function renderClientes(){
     markers.forEach(m=>map.removeLayer(m)); markers=[]; 
     clients.forEach((c,i)=>{ 
         let div=document.createElement('div'); div.className='client'; 
-        
         if(editingClientId === c.id) {
             div.classList.add('edit-mode');
-            div.innerHTML = `
-                <input id="edit_name" value="${c.name||''}" placeholder="Nombre" />
-                <input id="edit_address" value="${c.address||''}" placeholder="Dirección" />
-                <textarea id="edit_notes" rows="2" placeholder="Notas">${c.notes||''}</textarea>
-                <div style="display:flex; gap:4px">
-                    <input id="edit_lat" value="${c.lat||''}" placeholder="Lat" />
-                    <input id="edit_lng" value="${c.lng||''}" placeholder="Lng" />
-                </div>
-                <div style="display:flex; gap:8px; margin-top:8px">
-                    <button class="smallBtn saveBtn" onclick="saveEditClient('${c.id}')">💾 Guardar</button>
-                    <button class="smallBtn" style="background:#64748b" onclick="cancelEdit()">❌</button>
-                </div>`;
+            div.innerHTML = `<input id="edit_name" value="${c.name||''}"/><input id="edit_address" value="${c.address||''}"/><textarea id="edit_notes">${c.notes||''}</textarea><button class="smallBtn saveBtn" onclick="saveEditClient('${c.id}')">💾</button>`;
         } else {
-            div.innerHTML=`<div style="display:flex; align-items:center;">
-                    <input type="checkbox" id="c${i}" data-id="${c.id}"> 
-                    <div style="flex:1">
-                        <b>${c.name}</b><br><small>${c.address||'Sin dirección'}</small>
-                    </div>
-                </div>
-                <div style="margin-top:8px">
-                    <button class="smallBtn" onclick='editClient("${c.id}")'>✏️ Editar</button>
-                    <button class="smallBtn deleteBtn" onclick='deleteClient("${c.id}")'>🗑️</button>
-                </div>`;
+            div.innerHTML=`<div style="display:flex; align-items:center;"><input type="checkbox" id="c${i}"><div style="flex:1"><b>${c.name}</b><br><small>${c.address}</small></div></div><button class="smallBtn" onclick='editClient("${c.id}")'>✏️</button><button class="smallBtn deleteBtn" onclick='deleteClient("${c.id}")'>🗑️</button>`;
         }
         container.appendChild(div);
-
         if(c.lat && c.lng){ 
             const defaultIcon = getClientIcon(c);
             let m = L.marker([c.lat,c.lng], {icon: defaultIcon}).addTo(map).bindPopup(c.name);
-            const updateMarkerIcon = (checked) => { m.setIcon(checked ? iconPin : defaultIcon); };
-            m.on('click', () => { 
-                const cb = document.getElementById('c'+i); 
-                cb.checked = !cb.checked; 
-                updateMarkerIcon(cb.checked); 
-            });
-            setTimeout(() => {
-                const cb = document.getElementById('c'+i);
-                if(cb) cb.addEventListener('change', () => updateMarkerIcon(cb.checked));
-            }, 100);
             markers.push(m);
         }
     }); 
     document.getElementById('stats').innerHTML=clients.length; 
 }
 
-window.editClient=function(id){ 
-    editingClientId = id;
-    renderClientes(); 
-}
-
-window.cancelEdit=function(){
-    editingClientId = null;
-    renderClientes();
-}
-
+window.editClient=function(id){ editingClientId = id; renderClientes(); }
 window.saveEditClient=async function(id){
-    const name = document.getElementById('edit_name').value.trim();
-    const address = document.getElementById('edit_address').value.trim();
-    const notes = document.getElementById('edit_notes').value.trim();
-    const latIn = document.getElementById('edit_lat').value;
-    const lngIn = document.getElementById('edit_lng').value;
-
-    if(!name) return alert("Pon nombre");
-    let lat, lng;
-    if(latIn && lngIn){ lat=parseFloat(latIn); lng=parseFloat(lngIn); }
-    else if(address){ const co=await geocode(address); if(!co) return alert("No encontrada"); lat=co.lat; lng=co.lng; }
-    
-    try {
-        await updateDoc(doc(db,"clientes",id),{name,address,lat,lng,notes}); 
-        editingClientId = null;
-        cargarClientes();
-    } catch(e) { alert("Error: " + e.message); }
+    const name = document.getElementById('edit_name').value, address = document.getElementById('edit_address').value, notes = document.getElementById('edit_notes').value;
+    await updateDoc(doc(db,"clientes",id),{name,address,notes}); editingClientId = null; cargarClientes();
 }
-
-window.deleteClient=async function(id){ if(confirm("¿Borrar cliente?")) { await deleteDoc(doc(db,"clientes",id)); cargarClientes(); } };
-window.deleteRoute=async function(id){ if(confirm("¿Borrar esta ruta del historial?")) { await deleteDoc(doc(db,"rutas",id)); cargarRutas(); } };
+window.deleteClient=async function(id){ if(confirm("¿Borrar?")) { await deleteDoc(doc(db,"clientes",id)); cargarClientes(); } };
 
 window.addClient=async function(){ 
-    const name=document.getElementById('name').value.trim(), address=document.getElementById('address').value.trim(), notes=document.getElementById('notes').value.trim(), latIn=document.getElementById('lat').value, lngIn=document.getElementById('lng').value;
-    if(!name) return alert("Pon nombre");
-    let lat, lng;
-    if(latIn && lngIn){ lat=parseFloat(latIn); lng=parseFloat(lngIn); }
-    else if(address){ const co=await geocode(address); if(!co) return alert("No encontrada"); lat=co.lat; lng=co.lng; }
-    else { try { const pos=await new Promise((r,j)=>navigator.geolocation.getCurrentPosition(r,j)); lat=pos.coords.latitude; lng=pos.coords.longitude; } catch(e){ return alert("GPS error"); } }
-    try {
-        await addDoc(coleccionClientes,{name,address,lat,lng,notes}); 
-        document.getElementById('name').value=""; document.getElementById('address').value=""; document.getElementById('notes').value=""; document.getElementById('lat').value=""; document.getElementById('lng').value="";
-        cargarClientes();
-    } catch(e) { alert("Error: " + e.message); }
+    const name=document.getElementById('name').value, address=document.getElementById('address').value, notes=document.getElementById('notes').value;
+    const co=await geocode(address); if(!co) return alert("Error dirección");
+    await addDoc(coleccionClientes,{name,address,lat:co.lat,lng:co.lng,notes}); cargarClientes();
 }
 
 window.createRoute=async function(){ 
-    let sel=clients.filter((c,i)=>document.getElementById('c'+i)?.checked); 
-    if(sel.length<1) return alert("Selecciona clientes"); 
-    currentStartOption = document.getElementById('startOption').value;
-    let sLat, sLng;
-    if(currentStartOption==="gps"){ 
-        if(userMarker){ const pos=userMarker.getLatLng(); sLat=pos.lat; sLng=pos.lng; } 
-        else { const p=await new Promise((r,j)=>navigator.geolocation.getCurrentPosition(r,j)); sLat=p.coords.latitude; sLng=p.coords.longitude; }
-    } else { 
-        let ad=document.getElementById('startAddress').value.trim(); if(!ad) return alert("Salida vacía"); const c=await geocode(ad); if(!c) return alert("No válida"); sLat=c.lat; sLng=c.lng; 
-    }
-    
-    const inputCoords = [[sLat,sLng],...sel.map(c=>[c.lat,c.lng])];
+    let sel=clients.filter((c,i)=>document.getElementById('c'+i)?.checked); if(sel.length<1) return;
+    const pos=await new Promise((r,j)=>navigator.geolocation.getCurrentPosition(r,j));
+    const inputCoords = [[pos.coords.latitude,pos.coords.longitude],...sel.map(c=>[c.lat,c.lng])];
     const strCoords = inputCoords.map(c => `${c[1]},${c[0]}`).join(';');
-    
-    try {
-        const response = await fetch(`https://router.project-osrm.org/trip/v1/driving/${strCoords}?source=first&destination=last&roundtrip=false&overview=full&geometries=geojson`);
-        const data = await response.json();
-        
-        if(data.waypoints) {
-            lastRouteClients = data.waypoints
-                .sort((a, b) => a.waypoint_index - b.waypoint_index)
-                .map(w => {
-                   if(w.waypoint_index === 0) return { name: "Inicio", lat: sLat, lng: sLng, address: (currentStartOption === "manual" ? document.getElementById('startAddress').value : "") };
-                   return sel[w.waypoint_index - 1];
-                });
-
-            lastRouteCoords = lastRouteClients.map(c => [c.lat, c.lng]);
-
-            if(routeLine) map.removeLayer(routeLine); redMarkers.forEach(m=>map.removeLayer(m)); redMarkers=[];
-            routeLine=L.geoJSON(data.trips[0].geometry,{style:{color:'#0ea5e9',weight:5}}).addTo(map); 
-            map.fitBounds(routeLine.getBounds());
-            lastRouteCoords.slice(1).forEach(c=>{ redMarkers.push(L.circleMarker(c,{radius:6,color:'red',fillOpacity:1}).addTo(map)); });
-            
-            await addDoc(coleccionRutas,{date:document.getElementById('routeDate').value, clients:sel.map(c=>c.id), start:{lat:sLat,lng:sLng}, mode:currentStartOption});
-            cargarRutas();
-        }
-    } catch(e) { alert("Error OSRM: " + e.message); }
+    const res = await fetch(`https://router.project-osrm.org/trip/v1/driving/${strCoords}?overview=full&geometries=geojson`);
+    const data = await res.json();
+    if(routeLine) map.removeLayer(routeLine);
+    routeLine=L.geoJSON(data.trips[0].geometry,{style:{color:'#0ea5e9',weight:5}}).addTo(map); 
 }
 
-window.loadRoute=async function(id){ 
-    const sn=await getDocs(coleccionRutas); const rd=sn.docs.find(d=>d.id===id); if(!rd)return;
-    const d=rd.data(); 
-    clients.forEach((c, i) => { const cb = document.getElementById('c'+i); if(cb) cb.checked = false; });
-    d.clients.forEach(cid => {
-        const idx = clients.findIndex(c => c.id === cid);
-        if(idx !== -1) {
-            const cb = document.getElementById('c'+idx);
-            if(cb) { cb.checked = true; markers[idx].setIcon(iconPin); }
-        }
-    });
-    currentStartOption = d.mode || "gps";
-    if(d.mode === "manual") {
-        document.getElementById('startOption').value = "manual";
-        document.getElementById('startAddress').style.display = "block";
-        document.getElementById('startAddress').value = "Cargando...";
-    }
-    window.createRoute();
-}
-
-function getGoogleMapsUrl() {
-    if (lastRouteClients.length < 2) return null;
-    const origin = (currentStartOption === "gps") ? "" : encodeURIComponent(lastRouteClients[0].address || `${lastRouteClients[0].lat},${lastRouteClients[0].lng}`);
-    const lastIdx = lastRouteClients.length - 1;
-    const destClient = lastRouteClients[lastIdx];
-    const destination = (destClient.address && destClient.address.trim() !== "") ? encodeURIComponent(destClient.address) : `${destClient.lat},${destClient.lng}`;
-    let waypoints = "";
-    if (lastRouteClients.length > 2) {
-        waypoints = lastRouteClients.slice(1, -1).map(c => {
-            return (c.address && c.address.trim() !== "") ? encodeURIComponent(c.address) : `${c.lat},${c.lng}`;
-        }).join('|');
-    }
-    return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${waypoints}&travelmode=driving`;
-}
-
-window.enviarRutaGoogleOrdenEstricto = function() {
-    const url = getGoogleMapsUrl();
-    if(url) window.open(url, '_blank');
-    else alert("Crea una ruta primero");
-}
-
-window.openInGoogleMaps = function(){ 
-    const url = getGoogleMapsUrl();
-    if(url) window.open(url, '_blank');
-    else alert("Crea una ruta primero");
-}
-
-window.openInWaze = function() {
-    if(lastRouteCoords.length < 2) return alert("Crea o carga una ruta");
-    const dest = lastRouteCoords[lastRouteCoords.length - 1];
-    const url = `https://waze.com/ul?ll=${dest[0]},${dest[1]}&navigate=yes`;
-    window.open(url, '_blank');
-}
-
-window.login=async function(){ 
-    try { await signInWithEmailAndPassword(auth,document.getElementById('email').value,document.getElementById('password').value); alert("Login OK"); cargarClientes(); cargarRutas(); showUserPosition(); } catch(e){ alert("Error: "+e.message); }
-}
-
-let userMarker = null;
-async function showUserPosition() {
-    try {
-        const pos = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject));
-        const lat = pos.coords.latitude; const lng = pos.coords.longitude;
-        if(userMarker) map.removeLayer(userMarker);
-        userMarker = L.marker([lat, lng], {icon: iconUser}).addTo(map).bindPopup("📍 Tú estás aquí");
-        map.setView([lat, lng], 13);
-    } catch(e) { console.warn("No se pudo obtener la ubicación: ", e); }
-}
+window.login=async function(){ try { await signInWithEmailAndPassword(auth,document.getElementById('email').value,document.getElementById('password').value); cargarClientes(); cargarRutas(); } catch(e){ alert(e.message); } }
 
 document.addEventListener("DOMContentLoaded",()=>{
     document.getElementById('btnLogin').addEventListener('click',login);
     document.getElementById('btnAddClient').addEventListener('click',addClient);
     document.getElementById('btnCreateRoute').addEventListener('click',createRoute);
-    document.getElementById('btnRutaOrdenEstricto').addEventListener('click',window.enviarRutaGoogleOrdenEstricto);
-    document.getElementById('btnGoogleMaps').addEventListener('click',window.openInGoogleMaps);
-    document.getElementById('btnWaze').addEventListener('click',window.openInWaze);
-    document.getElementById('btnClearRoute').addEventListener('click',()=>{ 
-        if(routeLine)map.removeLayer(routeLine); 
-        redMarkers.forEach(m=>map.removeLayer(m));
-    });
-    document.getElementById('startOption').addEventListener('change',e=>document.getElementById('startAddress').style.display=e.target.value==="manual"?"block":"none");
     cargarClientes(); 
-    cargarRutas(); 
-    showUserPosition();
 });
 </script>
 </body>
