@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8" />
-<title>Rutas Comerciales PRO v2.4 - Icono Peaje Euro</title>
+<title>Rutas Comerciales PRO v2.4 - Icono Euro Amarillo</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
@@ -79,7 +79,7 @@ input[type="checkbox"] { width: auto; transform: scale(1.4); margin-right: 12px;
     <h3>👥 Gestión de Cliente</h3>
     <input id="name" placeholder="Nombre cliente" />
     <input id="address" placeholder="Dirección manual" />
-    <textarea id="notes" placeholder="Notas (ej: peaje, restaurante...)" rows="2"></textarea>
+    <textarea id="notes" placeholder="Notas (ej: pago, hotel, restaurante...)" rows="2"></textarea>
     <div style="display:flex; gap:8px">
         <input id="lat" placeholder="Latitud" />
         <input id="lng" placeholder="Longitud" />
@@ -129,7 +129,7 @@ const coleccionRutas = collection(db,"rutas");
 let clients=[], markers=[], redMarkers=[], routeLine, lastRouteCoords=[], lastRouteClients=[];
 let editingClientId = null, currentStartOption = "gps";
 
-// ICONOS PERSONALIZADOS
+// DEFINICIÓN DE ICONOS (FORMATO SVG INLINE PARA GARANTIZAR CARGA)
 const iconNormal = new L.Icon({ iconUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png", shadowUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png", iconSize:[25,41], iconAnchor:[12,41] });
 
 const iconFood = new L.Icon({ 
@@ -142,9 +142,9 @@ const iconHotel = new L.Icon({
     iconSize:[38,38], iconAnchor:[19,38] 
 });
 
-// ICONO PEAJE: AMARILLO CON SIMBOLO EURO (€)
-const iconPeajeEuro = new L.Icon({ 
-    iconUrl: "data:image/svg+xml;base64," + btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 38 38"><circle cx="19" cy="19" r="18" fill="#facc15" stroke="white" stroke-width="2"/><text x="50%" y="55%" font-size="20" text-anchor="middle" fill="black" font-family="Arial" font-weight="bold" dominant-baseline="middle">€</text></svg>`), 
+// NUEVO ICONO: EURO AMARILLO (MISMO ESTILO QUE HOTEL)
+const iconEuro = new L.Icon({ 
+    iconUrl: "data:image/svg+xml;base64," + btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 38 38"><circle cx="19" cy="19" r="18" fill="#facc15" stroke="white" stroke-width="2"/><text x="50%" y="55%" font-size="19" text-anchor="middle" fill="black" font-family="Arial" font-weight="bold" dominant-baseline="middle">€</text></svg>`), 
     iconSize:[38,38], iconAnchor:[19,38] 
 });
 
@@ -153,14 +153,14 @@ const iconUser = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/68
 
 function getClientIcon(cliente){
   const text=(cliente.notes||"").toLowerCase();
-  // ACTIVACIÓN POR PALABRA "PEAJE"
-  if(text.includes("peaje")) return iconPeajeEuro;
+  // NUEVA LÓGICA: SI CONTIENE "PAGO", EURO AMARILLO
+  if(text.includes("pago")) return iconEuro;
   if(text.includes("comida")||text.includes("bar")||text.includes("restaurante")) return iconFood;
   if(text.includes("hotel")||text.includes("hostal")||text.includes("dormir")) return iconHotel;
   return iconNormal;
 }
 
-// --- RESTO DE FUNCIONES ---
+// --- RESTO DEL CÓDIGO SIN TOCAR ---
 let map = L.map('map').setView([40.4168,-3.7038],12);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
@@ -193,54 +193,23 @@ function renderClientes(){
     markers.forEach(m=>map.removeLayer(m)); markers=[]; 
     clients.forEach((c,i)=>{ 
         let div=document.createElement('div'); div.className='client'; 
+        
         if(editingClientId === c.id) {
             div.classList.add('edit-mode');
-            div.innerHTML = `<input id="edit_name" value="${c.name||''}"/><input id="edit_address" value="${c.address||''}"/><textarea id="edit_notes">${c.notes||''}</textarea><button class="smallBtn saveBtn" onclick="saveEditClient('${c.id}')">💾</button>`;
+            div.innerHTML = `
+                <input id="edit_name" value="${c.name||''}" placeholder="Nombre" />
+                <input id="edit_address" value="${c.address||''}" placeholder="Dirección" />
+                <textarea id="edit_notes" rows="2" placeholder="Notas">${c.notes||''}</textarea>
+                <div style="display:flex; gap:4px">
+                    <input id="edit_lat" value="${c.lat||''}" placeholder="Lat" />
+                    <input id="edit_lng" value="${c.lng||''}" placeholder="Lng" />
+                </div>
+                <div style="display:flex; gap:8px; margin-top:8px">
+                    <button class="smallBtn saveBtn" onclick="saveEditClient('${c.id}')">💾 Guardar</button>
+                    <button class="smallBtn" style="background:#64748b" onclick="cancelEdit()">❌</button>
+                </div>`;
         } else {
-            div.innerHTML=`<div style="display:flex; align-items:center;"><input type="checkbox" id="c${i}"><div style="flex:1"><b>${c.name}</b><br><small>${c.address}</small></div></div><button class="smallBtn" onclick='editClient("${c.id}")'>✏️</button><button class="smallBtn deleteBtn" onclick='deleteClient("${c.id}")'>🗑️</button>`;
-        }
-        container.appendChild(div);
-        if(c.lat && c.lng){ 
-            const defaultIcon = getClientIcon(c);
-            let m = L.marker([c.lat,c.lng], {icon: defaultIcon}).addTo(map).bindPopup(c.name);
-            markers.push(m);
-        }
-    }); 
-    document.getElementById('stats').innerHTML=clients.length; 
-}
-
-window.editClient=function(id){ editingClientId = id; renderClientes(); }
-window.saveEditClient=async function(id){
-    const name = document.getElementById('edit_name').value, address = document.getElementById('edit_address').value, notes = document.getElementById('edit_notes').value;
-    await updateDoc(doc(db,"clientes",id),{name,address,notes}); editingClientId = null; cargarClientes();
-}
-window.deleteClient=async function(id){ if(confirm("¿Borrar?")) { await deleteDoc(doc(db,"clientes",id)); cargarClientes(); } };
-
-window.addClient=async function(){ 
-    const name=document.getElementById('name').value, address=document.getElementById('address').value, notes=document.getElementById('notes').value;
-    const co=await geocode(address); if(!co) return alert("Error dirección");
-    await addDoc(coleccionClientes,{name,address,lat:co.lat,lng:co.lng,notes}); cargarClientes();
-}
-
-window.createRoute=async function(){ 
-    let sel=clients.filter((c,i)=>document.getElementById('c'+i)?.checked); if(sel.length<1) return;
-    const pos=await new Promise((r,j)=>navigator.geolocation.getCurrentPosition(r,j));
-    const inputCoords = [[pos.coords.latitude,pos.coords.longitude],...sel.map(c=>[c.lat,c.lng])];
-    const strCoords = inputCoords.map(c => `${c[1]},${c[0]}`).join(';');
-    const res = await fetch(`https://router.project-osrm.org/trip/v1/driving/${strCoords}?overview=full&geometries=geojson`);
-    const data = await res.json();
-    if(routeLine) map.removeLayer(routeLine);
-    routeLine=L.geoJSON(data.trips[0].geometry,{style:{color:'#0ea5e9',weight:5}}).addTo(map); 
-}
-
-window.login=async function(){ try { await signInWithEmailAndPassword(auth,document.getElementById('email').value,document.getElementById('password').value); cargarClientes(); cargarRutas(); } catch(e){ alert(e.message); } }
-
-document.addEventListener("DOMContentLoaded",()=>{
-    document.getElementById('btnLogin').addEventListener('click',login);
-    document.getElementById('btnAddClient').addEventListener('click',addClient);
-    document.getElementById('btnCreateRoute').addEventListener('click',createRoute);
-    cargarClientes(); 
-});
-</script>
-</body>
-</html>
+            div.innerHTML=`<div style="display:flex; align-items:center;">
+                    <input type="checkbox" id="c${i}" data-id="${c.id}"> 
+                    <div style="flex:1">
+                        <b>${c.name}</b><br><small>${c.address||'Sin dirección'}</small
