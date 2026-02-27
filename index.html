@@ -138,11 +138,17 @@ const iconHotel = new L.Icon({
     iconUrl: "data:image/svg+xml;base64," + btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 38 38"><circle cx="19" cy="19" r="18" fill="#ff9900" stroke="white" stroke-width="2"/><text x="50%" y="55%" font-size="18" text-anchor="middle" fill="black" font-family="Arial" font-weight="bold" dominant-baseline="middle">H</text></svg>`), 
     iconSize:[38,38], iconAnchor:[19,38] 
 });
+// --- NUEVO ICONO DE PEAJE AÑADIDO AQUÍ ---
+const iconToll = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/4814/4814914.png", iconSize:[38,38], iconAnchor:[19,38] });
+// ----------------------------------------
 const iconPin = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/684/684908.png", iconSize:[32,32], iconAnchor:[16,32] });
 const iconUser = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/684/684908.png", iconSize:[40,40], iconAnchor:[20,40] });
 
 function getClientIcon(cliente){
   const text=(cliente.notes||"").toLowerCase();
+  // --- LÓGICA DE DETECCIÓN DE PEAJE AÑADIDA AQUÍ ---
+  if(text.includes("peaje")) return iconToll;
+  // ------------------------------------------------
   if(text.includes("comida")||text.includes("bar")||text.includes("restaurante")) return iconFood;
   if(text.includes("hotel")||text.includes("hostal")||text.includes("dormir")) return iconHotel;
   return iconNormal;
@@ -294,7 +300,6 @@ window.createRoute=async function(){
         const data = await response.json();
         
         if(data.waypoints) {
-            // Guardamos los clientes ordenados según OSRM para la navegación
             lastRouteClients = data.waypoints
                 .sort((a, b) => a.waypoint_index - b.waypoint_index)
                 .map(w => {
@@ -330,26 +335,22 @@ window.loadRoute=async function(id){
     if(d.mode === "manual") {
         document.getElementById('startOption').value = "manual";
         document.getElementById('startAddress').style.display = "block";
-        document.getElementById('startAddress').value = "Cargando..."; // OSRM lo recalcula
+        document.getElementById('startAddress').value = "Cargando...";
     }
     window.createRoute();
 }
 
-// --- CORRECCIÓN CLAVE AQUÍ ---
 function getGoogleMapsUrl() {
     if (lastRouteClients.length < 2) return null;
 
-    // Origen: Si es GPS va vacío para que Google use ubicación real, si no, la dirección de texto
     const origin = (currentStartOption === "gps") ? "" : encodeURIComponent(lastRouteClients[0].address || `${lastRouteClients[0].lat},${lastRouteClients[0].lng}`);
     
-    // Destino final: Priorizar dirección de texto para el número exacto
     const lastIdx = lastRouteClients.length - 1;
     const destClient = lastRouteClients[lastIdx];
     const destination = (destClient.address && destClient.address.trim() !== "") 
         ? encodeURIComponent(destClient.address) 
         : `${destClient.lat},${destClient.lng}`;
     
-    // Waypoints intermedios: Priorizar dirección de texto
     let waypoints = "";
     if (lastRouteClients.length > 2) {
         waypoints = lastRouteClients.slice(1, -1).map(c => {
