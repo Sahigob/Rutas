@@ -2,334 +2,124 @@
 <html lang="es">
 <head>
 <meta charset="utf-8" />
-<title>Rutas Comerciales PRO v2.4 - Orden Estricto Final</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Rutas PRO - Verificador OSM</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
 <style>
-:root {
-  --primary: #0ea5e9;
-  --primary-dark: #0284c7;
-  --bg: #f8fafc;
-  --card-bg: #ffffff;
-  --text: #1e293b;
-  --border: #e2e8f0;
-}
-
-body { margin:0; font-family: 'Segoe UI', system-ui, sans-serif; display:flex; flex-direction: row; height:100vh; background: var(--bg); color: var(--text); }
-#map { flex:1; height: 100%; z-index: 1; }
-#panel { width:400px; padding:24px; overflow-y:auto; background: var(--card-bg); border-left: 1px solid var(--border); box-sizing: border-box; box-shadow: -4px 0 15px rgba(0,0,0,0.05); z-index: 10; }
-
-@media (max-width: 768px) { 
-  body { flex-direction: column; } 
-  #map { flex: none; height: 35vh; } 
-  #panel { width: 100%; flex: 1; border-left: none; border-top: 2px solid var(--border); }
-}
-
-h3 { margin: 24px 0 12px 0; font-size: 1.1rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
-h3::before { content: ''; width: 4px; height: 18px; background: var(--primary); border-radius: 4px; }
-
-.card { background: white; border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
-
-button { 
-  width:100%; padding:12px; margin:8px 0; border-radius:10px; border:none; background: var(--primary); color:white; 
-  font-weight:600; cursor:pointer; font-size: 14px; transition: all 0.2s; display: flex; justify-content: center; align-items: center; gap: 8px;
-}
-button:hover { background: var(--primary-dark); }
-button:active { transform: scale(0.98); }
-
-#btnRutaOrdenEstricto { background-color: #ffc107; color: #212529; }
-#btnRutaOrdenEstricto:hover { background-color: #e0a800; }
-
-.smallBtn { padding:6px 12px; font-size:12px; margin: 4px 2px; width: auto; display: inline-flex; }
-.deleteBtn { background:#ef4444; }
-.deleteBtn:hover { background:#dc2626; }
-.saveBtn { background: #22c55e; }
-
-input, select, textarea { 
-  width:100%; margin:8px 0; padding:12px; border-radius:10px; border:1px solid var(--border); box-sizing: border-box; font-size: 14px; 
-}
-
-.client { padding:12px; border: 1px solid var(--border); background: white; margin-bottom: 8px; border-radius: 10px; }
-.edit-mode { border: 2px solid var(--primary); background: #f0f9ff; }
-.stats-badge { background: #e0f2fe; color: #0369a1; padding: 4px 12px; border-radius: 20px; font-size: 0.85rem; }
-label { font-weight: 600; font-size: 13px; margin-bottom: 4px; display: block; }
-input[type="checkbox"] { width: auto; transform: scale(1.4); margin-right: 12px; cursor: pointer; }
-
-.routeItem { 
-    display:flex; justify-content:space-between; align-items:center; 
-    margin-bottom:8px; font-size:13px; background:#f1f5f9; 
-    padding:8px 12px; border-radius:10px; border:1px solid #e2e8f0;
-}
+    body { margin:0; font-family: sans-serif; display:flex; height:100vh; background: #f0f2f5; }
+    #map { flex:1; }
+    #panel { width:400px; padding:20px; overflow-y:auto; background: white; border-left: 2px solid #ddd; }
+    .card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    button { width:100%; padding:12px; margin:5px 0; border-radius:6px; border:none; cursor:pointer; font-weight:bold; color: white; }
+    #btnOSM { background: #0ea5e9; }
+    #btnGoogle { background: #ffc107; color: #000; }
+    .debug-list { background: #222; color: #0f0; font-family: monospace; padding: 10px; font-size: 11px; border-radius: 5px; max-height: 150px; overflow-y: auto; }
+    .client-item { padding: 5px; border-bottom: 1px solid #eee; }
 </style>
 </head>
 <body>
 
 <div id="map"></div>
-
 <div id="panel">
-  <div class="card">
-    <h3>🔐 Login</h3>
-    <input id="email" placeholder="Correo electrónico" />
-    <input id="password" type="password" placeholder="Contraseña" />
-    <button id="btnLogin">Iniciar sesión</button>
-  </div>
-
-  <div class="card">
-    <h3>👥 Gestión de Cliente</h3>
-    <input id="name" placeholder="Nombre cliente" />
-    <input id="address" placeholder="Dirección manual" />
-    <textarea id="notes" placeholder="Notas (ej: Hotel, Restaurante...)" rows="2"></textarea>
-    <div style="display:flex; gap:8px">
-        <input id="lat" placeholder="Latitud" />
-        <input id="lng" placeholder="Longitud" />
+    <div class="card">
+        <h3>1. Configuración</h3>
+        <button id="btnOSM">🧭 Calcular Ruta OSM</button>
     </div>
-    <button id="btnAddClient">➕ Guardar cliente</button>
-  </div>
 
-  <div class="card">
-    <h3>🧭 Planificador de Ruta</h3>
-    <label>Fecha:</label>
-    <input type="date" id="routeDate" />
-    <label>Salida:</label>
-    <select id="startOption">
-      <option value="gps">📍 Mi ubicación actual</option>
-      <option value="manual">✏️ Dirección manual</option>
-    </select>
-    <input id="startAddress" placeholder="Dirección de salida" style="display:none"/>
-    <button id="btnCreateRoute">🧭 Crear ruta</button>
-    <div id="routeList"></div>
-  </div>
+    <div class="card">
+        <h3>2. Verificación del Motor</h3>
+        <p style="font-size: 12px; color: #666;">Este es el orden exacto que calculó OpenStreetMap:</p>
+        <div id="debugOrder" class="debug-list">Esperando ruta...</div>
+    </div>
 
-  <div class="card">
-    <h3>🚗 Navegación</h3>
-    <button id="btnGoogleMaps" style="background: #22c55e;">🌐 Google (Optimizado)</button>
-    <button id="btnRutaOrdenEstricto"><i class="fas fa-route"></i> Google (Orden Exacto)</button>
-    <button id="btnWaze" style="background: #1e40af;">🛣️ Abrir Waze</button>
-    <button id="btnClearRoute" style="background: #64748b;">🧹 Limpiar mapa</button>
-  </div>
+    <div class="card">
+        <h3>3. Navegación</h3>
+        <button id="btnGoogle">🚗 Abrir en Google (Orden de arriba)</button>
+    </div>
 
-  <h3>📊 Clientes <span id="stats" class="stats-badge">0</span></h3>
-  <div id="clientList"></div>
+    <div id="clientList" class="card"><h4>Clientes</h4></div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-firestore.js";
-import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-auth.js";
+import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-firestore.js";
 
 const firebaseConfig = { apiKey: "AIzaSyALty_4SfeZUg6B6_dbcOeZvGYpnu4gYsE", authDomain: "rutas-56f86.firebaseapp.com", projectId: "rutas-56f86", storageBucket: "rutas-56f86.appspot.com", messagingSenderId: "1026881492897", appId: "1:1026881492897:web:fcb315b53fcf5e40e3dde0" };
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const auth = getAuth(app);
-const coleccionClientes = collection(db,"clientes");
-const coleccionRutas = collection(db,"rutas");
 
-let clients=[], markers=[], redMarkers=[], routeLine, lastRouteCoords=[], lastRouteClients=[];
-let editingClientId = null, currentStartOption = "gps";
-
-const iconNormal = new L.Icon({ iconUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png", shadowUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png", iconSize:[25,41], iconAnchor:[12,41] });
-const iconFood = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/3448/3448609.png", iconSize:[38,38], iconAnchor:[19,38] });
-const iconHotel = new L.Icon({ 
-    iconUrl: "data:image/svg+xml;base64," + btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 38 38"><circle cx="19" cy="19" r="18" fill="#ff9900" stroke="white" stroke-width="2"/><text x="50%" y="55%" font-size="18" text-anchor="middle" fill="black" font-family="Arial" font-weight="bold" dominant-baseline="middle">H</text></svg>`), 
-    iconSize:[38,38], iconAnchor:[19,38] 
-});
-const iconPin = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/684/684908.png", iconSize:[32,32], iconAnchor:[16,32] });
-const iconUser = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/684/684908.png", iconSize:[40,40], iconAnchor:[20,40] });
-
-function getClientIcon(cliente){
-  const text=(cliente.notes||"").toLowerCase();
-  if(text.includes("comida")||text.includes("bar")||text.includes("restaurante")) return iconFood;
-  if(text.includes("hotel")||text.includes("hostal")||text.includes("dormir")) return iconHotel;
-  return iconNormal;
-}
-
-let map = L.map('map').setView([40.4168,-3.7038],12);
+let clients = [], lastRouteCoords = [];
+let map = L.map('map').setView([40.4168, -3.7038], 6);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-async function geocode(addr){ let res=await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr)}`); let data=await res.json(); return data.length>0 ? {lat:parseFloat(data[0].lat), lng:parseFloat(data[0].lon)} : null; }
+// Cargar clientes
+const snap = await getDocs(collection(db, "clientes"));
+clients = snap.docs.map(d => ({...d.data(), id: d.id})).filter(c => c.lat);
+clients.forEach((c, i) => {
+    const div = document.createElement('div');
+    div.className = 'client-item';
+    div.innerHTML = `<input type="checkbox" class="c-check" data-idx="${i}"> ${c.name}`;
+    document.getElementById('clientList').appendChild(div);
+    L.marker([c.lat, c.lng]).addTo(map).bindPopup(c.name);
+});
 
-async function cargarClientes(){ 
-    const snapshot=await getDocs(coleccionClientes); 
-    clients=snapshot.docs.map(d=>({...d.data(),id:d.id})).filter(c=>c.name); 
-    clients.sort((a,b)=>a.name.localeCompare(b.name)); 
-    renderClientes(); 
-}
-
-async function cargarRutas(){ 
-    const snapshot=await getDocs(coleccionRutas); 
-    const container=document.getElementById('routeList'); container.innerHTML=""; 
-    snapshot.docs.forEach(docSnap => {
-        const r = docSnap.data();
-        let div=document.createElement('div'); div.className="routeItem";
-        div.innerHTML=`<span>📅 ${r.date || 'Sin fecha'}</span> 
-            <div>
-                <button class="smallBtn" onclick="loadRoute('${docSnap.id}')">👁️ Ver</button>
-                <button class="smallBtn deleteBtn" onclick="deleteRoute('${docSnap.id}')">🗑️</button>
-            </div>`;
-        container.appendChild(div);
+// CALCULAR RUTA CON OSM
+document.getElementById('btnOSM').onclick = async () => {
+    let sel = [];
+    document.querySelectorAll('.c-check:checked').forEach(cb => {
+        sel.push(clients[cb.dataset.idx]);
     });
-}
 
-function renderClientes(){ 
-    const container=document.getElementById('clientList'); container.innerHTML=""; 
-    markers.forEach(m=>map.removeLayer(m)); markers=[]; 
-    clients.forEach((c,i)=>{ 
-        let div=document.createElement('div'); div.className='client'; 
-        if(editingClientId === c.id) {
-            div.classList.add('edit-mode');
-            div.innerHTML = `<input id="edit_name" value="${c.name||''}" /><input id="edit_address" value="${c.address||''}" /><textarea id="edit_notes">${c.notes||''}</textarea>
-                <div style="display:flex; gap:4px"><input id="edit_lat" value="${c.lat||''}" /><input id="edit_lng" value="${c.lng||''}" /></div>
-                <div style="display:flex; gap:8px; margin-top:8px"><button class="smallBtn saveBtn" onclick="saveEditClient('${c.id}')">💾</button><button class="smallBtn" onclick="cancelEdit()">❌</button></div>`;
-        } else {
-            div.innerHTML=`<div style="display:flex; align-items:center;"><input type="checkbox" id="c${i}" data-id="${c.id}"> <div style="flex:1"><b>${c.name}</b><br><small>${c.address||''}</small></div></div>
-                <div style="margin-top:8px"><button class="smallBtn" onclick='editClient("${c.id}")'>✏️</button><button class="smallBtn deleteBtn" onclick='deleteClient("${c.id}")'>🗑️</button></div>`;
-        }
-        container.appendChild(div);
-        if(c.lat && c.lng){ 
-            const defaultIcon = getClientIcon(c);
-            let m = L.marker([c.lat,c.lng], {icon: defaultIcon}).addTo(map).bindPopup(c.name);
-            const updateMarkerIcon = (checked) => { m.setIcon(checked ? iconPin : defaultIcon); };
-            m.on('click', () => { const cb = document.getElementById('c'+i); cb.checked = !cb.checked; updateMarkerIcon(cb.checked); });
-            setTimeout(() => { const cb = document.getElementById('c'+i); if(cb) cb.addEventListener('change', () => updateMarkerIcon(cb.checked)); }, 100);
-            markers.push(m);
-        }
-    }); 
-    document.getElementById('stats').innerHTML=clients.length; 
-}
+    if (sel.length === 0) return alert("Selecciona clientes");
 
-window.editClient=function(id){ editingClientId = id; renderClientes(); }
-window.cancelEdit=function(){ editingClientId = null; renderClientes(); }
-window.saveEditClient=async function(id){
-    const name = document.getElementById('edit_name').value.trim();
-    const address = document.getElementById('edit_address').value.trim();
-    const notes = document.getElementById('edit_notes').value.trim();
-    const latIn = document.getElementById('edit_lat').value, lngIn = document.getElementById('edit_lng').value;
-    let lat = parseFloat(latIn), lng = parseFloat(lngIn);
-    try { await updateDoc(doc(db,"clientes",id),{name,address,lat,lng,notes}); editingClientId = null; cargarClientes(); } catch(e) { alert("Error"); }
-}
+    // Inicio Madrid (puedes cambiarlo a GPS)
+    const inicio = [40.4168, -3.7038]; 
+    const pts = [inicio, ...sel.map(c => [c.lat, c.lng])];
+    const strPts = pts.map(p => `${p[1]},${p[0]}`).join(';');
 
-window.addClient=async function(){ 
-    const name=document.getElementById('name').value.trim(), address=document.getElementById('address').value.trim(), notes=document.getElementById('notes').value.trim(), latIn=document.getElementById('lat').value, lngIn=document.getElementById('lng').value;
-    let lat = parseFloat(latIn), lng = parseFloat(lngIn);
-    if(address && !lat){ const co=await geocode(address); if(co){lat=co.lat; lng=co.lng;} }
-    try { await addDoc(coleccionClientes,{name,address,lat,lng,notes}); cargarClientes(); } catch(e) { alert("Error"); }
-}
+    // Llamada a OSRM (Motor OpenStreetMap)
+    const res = await fetch(`https://router.project-osrm.org/trip/v1/driving/${strPts}?source=first&destination=last&roundtrip=false&overview=full&geometries=geojson`);
+    const data = await res.json();
 
-window.createRoute=async function(){ 
-    let sel=clients.filter((c,i)=>document.getElementById('c'+i)?.checked); 
-    if(sel.length<1) return alert("Selecciona clientes"); 
-    currentStartOption = document.getElementById('startOption').value;
-    let sLat, sLng;
-    if(currentStartOption==="gps"){ 
-        const p=await new Promise((r,j)=>navigator.geolocation.getCurrentPosition(r,j)); sLat=p.coords.latitude; sLng=p.coords.longitude;
-    } else { 
-        let ad=document.getElementById('startAddress').value.trim(); const c=await geocode(ad); sLat=c.lat; sLng=c.lng; 
+    if (data.waypoints) {
+        // OSRM a veces reordena para que el viaje sea lógico. 
+        // Extraemos el orden REAL que decidió OSM:
+        lastRouteCoords = data.waypoints
+            .sort((a, b) => a.waypoint_index - b.waypoint_index)
+            .map(w => [w.location[1], w.location[0]]);
+
+        // Mostrar el orden en el panel de debug
+        const debugDiv = document.getElementById('debugOrder');
+        debugDiv.innerHTML = lastRouteCoords.map((c, i) => {
+            return `${i === 0 ? 'SALIDA' : 'PARADA ' + i}: ${c[0].toFixed(4)}, ${c[1].toFixed(4)}`;
+        }).join('<br>');
+
+        // Dibujar en mapa
+        if(window.currentPath) map.removeLayer(window.currentPath);
+        window.currentPath = L.geoJSON(data.trips[0].geometry, {style: {color: '#0ea5e9', weight: 6}}).addTo(map);
+        map.fitBounds(window.currentPath.getBounds());
     }
-    lastRouteCoords=[[sLat,sLng],...sel.map(c=>[c.lat,c.lng])];
-    lastRouteClients=sel;
-    await addDoc(coleccionRutas,{date:document.getElementById('routeDate').value, clients:sel.map(c=>c.id), start:{lat:sLat,lng:sLng}, mode:currentStartOption});
-    cargarRutas();
-    drawRoute(lastRouteCoords);
-}
-
-function drawRoute(coords){ 
-    if(routeLine) map.removeLayer(routeLine); redMarkers.forEach(m=>map.removeLayer(m)); redMarkers=[];
-    const str=coords.map(c=>c[1]+","+c[0]).join(";");
-    fetch(`https://router.project-osrm.org/trip/v1/driving/${str}?source=first&roundtrip=false&overview=full&geometries=geojson`).then(r=>r.json()).then(d=>{
-        if(!d.trips) return;
-        routeLine=L.geoJSON(d.trips[0].geometry,{style:{color:'#0ea5e9',weight:5}}).addTo(map); 
-        map.fitBounds(routeLine.getBounds());
-        coords.slice(1).forEach(c=>{ redMarkers.push(L.circleMarker(c,{radius:6,color:'red',fillOpacity:1}).addTo(map)); });
-    });
-}
-
-window.loadRoute=async function(id){ 
-    const sn=await getDocs(coleccionRutas); const rd=sn.docs.find(d=>d.id===id); if(!rd)return;
-    const d=rd.data(); 
-    clients.forEach((c, i) => { const cb = document.getElementById('c'+i); if(cb) cb.checked = d.clients.includes(c.id); });
-    lastRouteClients = clients.filter(c => d.clients.includes(c.id));
-    currentStartOption = d.mode || "gps";
-    lastRouteCoords=[[d.start.lat,d.start.lng],...lastRouteClients.map(c=>[c.lat,c.lng])];
-    drawRoute(lastRouteCoords);
-    renderClientes();
-}
-
-// FUNCION DE ORDEN ESTRICTO CORREGIDA 100%
-window.enviarRutaGoogleOrdenEstricto = function() {
-    if (!lastRouteCoords || lastRouteCoords.length < 2) {
-        alert('Crea una ruta en el mapa primero.');
-        return;
-    }
-
-    // Origen: El primer punto de la lista (Madrid)
-    const origin = `${lastRouteCoords[0][0]},${lastRouteCoords[0][1]}`;
-    
-    // Destino FINAL: El último punto de la lista (El más alejado)
-    const destination = `${lastRouteCoords[lastRouteCoords.length - 1][0]},${lastRouteCoords[lastRouteCoords.length - 1][1]}`;
-    
-    // Waypoints: Todos los intermedios (incluyendo Alcorcón si está en medio)
-    let waypointsStr = "";
-    if (lastRouteCoords.length > 2) {
-        // Sacamos los puntos que no son ni el primero ni el último
-        const waypoints = lastRouteCoords.slice(1, -1);
-        waypointsStr = waypoints.map(c => `${c[0]},${c[1]}`).join('|');
-    }
-
-    // Construcción de la URL de Direcciones
-    // Al definir destination como el punto final y waypoints como pasos intermedios, 
-    // Google Maps NO reordenará si no le pasamos el comando optimize:true.
-    let url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`;
-    
-    if (waypointsStr) {
-        url += `&waypoints=${encodeURIComponent(waypointsStr)}`;
-    }
-    
-    url += `&travelmode=driving`;
-
-    window.open(url, '_blank');
 };
 
-window.openInGoogleMaps=function(){ 
-    if(lastRouteCoords.length<2) return alert("Crea ruta"); 
-    let origin = lastRouteCoords[0].join(',');
-    let dest = lastRouteCoords[lastRouteCoords.length-1].join(',');
-    // Esta versión suele optimizar, por eso mantenemos las dos
-    let waypoints = lastRouteCoords.slice(1,-1).map(c=>c.join(',')).join('|');
-    window.open(`https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}&waypoints=${waypoints}&travelmode=driving`,'_blank'); 
-}
+// ENVIAR A GOOGLE
+document.getElementById('btnGoogle').onclick = () => {
+    if (lastRouteCoords.length < 2) return alert("Primero calcula la ruta con el botón azul");
 
-window.openInWaze = function() {
-    if(lastRouteCoords.length < 2) return;
-    const dest = lastRouteCoords[lastRouteCoords.length - 1];
-    window.open(`https://waze.com/ul?ll=${dest[0]},${dest[1]}&navigate=yes`, '_blank');
-}
+    const origin = `${lastRouteCoords[0][0]},${lastRouteCoords[0][1]}`;
+    const destination = `${lastRouteCoords[lastRouteCoords.length - 1][0]},${lastRouteCoords[lastRouteCoords.length - 1][1]}`;
+    
+    // Aquí está el truco: usamos los puntos intermedios que OSM dijo que eran mejores
+    let waypoints = "";
+    if (lastRouteCoords.length > 2) {
+        waypoints = lastRouteCoords.slice(1, -1).map(c => `${c[0]},${c[1]}`).join('|');
+    }
 
-window.login=async function(){ 
-    try { await signInWithEmailAndPassword(auth,document.getElementById('email').value,document.getElementById('password').value); alert("OK"); cargarClientes(); cargarRutas(); showUserPosition(); } catch(e){ alert("Error"); }
-}
-
-let userMarker = null;
-async function showUserPosition() {
-    try {
-        const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej));
-        if(userMarker) map.removeLayer(userMarker);
-        userMarker = L.marker([pos.coords.latitude, pos.coords.longitude], {icon: iconUser}).addTo(map);
-    } catch(e) {}
-}
-
-document.addEventListener("DOMContentLoaded",()=>{
-    document.getElementById('btnLogin').addEventListener('click',login);
-    document.getElementById('btnAddClient').addEventListener('click',addClient);
-    document.getElementById('btnCreateRoute').addEventListener('click',createRoute);
-    document.getElementById('btnGoogleMaps').addEventListener('click',window.openInGoogleMaps);
-    document.getElementById('btnRutaOrdenEstricto').addEventListener('click', window.enviarRutaGoogleOrdenEstricto);
-    document.getElementById('btnWaze').addEventListener('click',window.openInWaze);
-    document.getElementById('btnClearRoute').addEventListener('click',()=>{ if(routeLine)map.removeLayer(routeLine); redMarkers.forEach(m=>map.removeLayer(m)); });
-    document.getElementById('startOption').addEventListener('change',e=>document.getElementById('startAddress').style.display=e.target.value==="manual"?"block":"none");
-    cargarClientes(); cargarRutas(); showUserPosition();
-});
+    // URL Estricta: Obligamos a Google a usar el orden de los waypoints de OSM
+    const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${encodeURIComponent(waypoints)}&travelmode=driving`;
+    
+    window.open(url, '_blank');
+};
 </script>
 </body>
 </html>
