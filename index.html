@@ -115,7 +115,6 @@ input[type="checkbox"] { width: auto; transform: scale(1.4); margin-right: 12px;
   <h3>📊 Clientes <span id="stats" class="stats-badge">0</span></h3>
   <div id="clientList"></div>
 </div>
-
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-app.js";
@@ -132,27 +131,42 @@ const coleccionRutas = collection(db,"rutas");
 let clients=[], markers=[], redMarkers=[], routeLine, lastRouteCoords=[], lastRouteClients=[];
 let editingClientId = null, currentStartOption = "gps";
 
+/* === ICONOS === */
 const iconNormal = new L.Icon({ iconUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png", shadowUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png", iconSize:[25,41], iconAnchor:[12,41] });
 const iconFood = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/3448/3448609.png", iconSize:[38,38], iconAnchor:[19,38] });
 const iconHotel = new L.Icon({ 
     iconUrl: "data:image/svg+xml;base64," + btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 38 38"><circle cx="19" cy="19" r="18" fill="#ff9900" stroke="white" stroke-width="2"/><text x="50%" y="55%" font-size="18" text-anchor="middle" fill="black" font-family="Arial" font-weight="bold" dominant-baseline="middle">H</text></svg>`), 
     iconSize:[38,38], iconAnchor:[19,38] 
 });
+/* === ICONO PEAJE VERDE CON P === */
+const iconPeaje = new L.Icon({ 
+    iconUrl: "data:image/svg+xml;base64," + btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 38 38"><circle cx="19" cy="19" r="18" fill="#22c55e" stroke="white" stroke-width="2"/><text x="50%" y="55%" font-size="18" text-anchor="middle" fill="black" font-family="Arial" font-weight="bold" dominant-baseline="middle">P</text></svg>`), 
+    iconSize:[38,38], iconAnchor:[19,38] 
+});
 const iconPin = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/684/684908.png", iconSize:[32,32], iconAnchor:[16,32] });
 const iconUser = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/684/684908.png", iconSize:[40,40], iconAnchor:[20,40] });
 
+/* === FUNCION PARA ELEGIR ICONO SEGUN NOTAS === */
 function getClientIcon(cliente){
   const text=(cliente.notes||"").toLowerCase();
+  if(text.includes("peaje")) return iconPeaje;
   if(text.includes("comida")||text.includes("bar")||text.includes("restaurante")) return iconFood;
   if(text.includes("hotel")||text.includes("hostal")||text.includes("dormir")) return iconHotel;
   return iconNormal;
 }
 
+/* === INICIALIZACION DEL MAPA === */
 let map = L.map('map').setView([40.4168,-3.7038],12);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-async function geocode(addr){ let res=await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr)}`); let data=await res.json(); return data.length>0 ? {lat:parseFloat(data[0].lat), lng:parseFloat(data[0].lon)} : null; }
+/* === FUNCION PARA GEOCODIFICAR DIRECCION === */
+async function geocode(addr){ 
+    let res=await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr)}`); 
+    let data=await res.json(); 
+    return data.length>0 ? {lat:parseFloat(data[0].lat), lng:parseFloat(data[0].lon)} : null; 
+}
 
+/* === CARGAR CLIENTES DE FIRESTORE === */
 async function cargarClientes(){ 
     const snapshot=await getDocs(coleccionClientes); 
     clients=snapshot.docs.map(d=>({...d.data(),id:d.id})).filter(c=>c.name); 
@@ -160,21 +174,7 @@ async function cargarClientes(){
     renderClientes(); 
 }
 
-async function cargarRutas(){ 
-    const snapshot=await getDocs(coleccionRutas); 
-    const container=document.getElementById('routeList'); container.innerHTML=""; 
-    snapshot.docs.forEach(docSnap => {
-        const r = docSnap.data();
-        let div=document.createElement('div'); div.className="routeItem";
-        div.innerHTML=`<span>📅 ${r.date || 'Sin fecha'}</span> 
-            <div>
-                <button class="smallBtn" onclick="loadRoute('${docSnap.id}')">👁️ Ver</button>
-                <button class="smallBtn deleteBtn" onclick="deleteRoute('${docSnap.id}')">🗑️</button>
-            </div>`;
-        container.appendChild(div);
-    });
-}
-
+/* === FUNCION PARA RENDERIZAR CLIENTES EN PANEL Y MAPA === */
 function renderClientes(){ 
     const container=document.getElementById('clientList'); container.innerHTML=""; 
     markers.forEach(m=>map.removeLayer(m)); markers=[]; 
@@ -228,6 +228,7 @@ function renderClientes(){
     document.getElementById('stats').innerHTML=clients.length; 
 }
 
+/* === FUNCIONES PARA EDITAR CLIENTE === */
 window.editClient=function(id){ 
     editingClientId = id;
     renderClientes(); 
@@ -237,7 +238,7 @@ window.cancelEdit=function(){
     editingClientId = null;
     renderClientes();
 }
-
+/* === FUNCION PARA GUARDAR CLIENTE EDITADO === */
 window.saveEditClient=async function(id){
     const name = document.getElementById('edit_name').value.trim();
     const address = document.getElementById('edit_address').value.trim();
@@ -257,9 +258,11 @@ window.saveEditClient=async function(id){
     } catch(e) { alert("Error: " + e.message); }
 }
 
+/* === FUNCIONES PARA BORRAR CLIENTE O RUTA === */
 window.deleteClient=async function(id){ if(confirm("¿Borrar cliente?")) { await deleteDoc(doc(db,"clientes",id)); cargarClientes(); } };
 window.deleteRoute=async function(id){ if(confirm("¿Borrar esta ruta del historial?")) { await deleteDoc(doc(db,"rutas",id)); cargarRutas(); } };
 
+/* === FUNCION PARA AÑADIR CLIENTE NUEVO === */
 window.addClient=async function(){ 
     const name=document.getElementById('name').value.trim(), address=document.getElementById('address').value.trim(), notes=document.getElementById('notes').value.trim(), latIn=document.getElementById('lat').value, lngIn=document.getElementById('lng').value;
     if(!name) return alert("Pon nombre");
@@ -274,6 +277,7 @@ window.addClient=async function(){
     } catch(e) { alert("Error: " + e.message); }
 }
 
+/* === FUNCION PARA CREAR RUTA === */
 window.createRoute=async function(){ 
     let sel=clients.filter((c,i)=>document.getElementById('c'+i)?.checked); 
     if(sel.length<1) return alert("Selecciona clientes"); 
@@ -294,7 +298,6 @@ window.createRoute=async function(){
         const data = await response.json();
         
         if(data.waypoints) {
-            // Guardamos los clientes ordenados según OSRM para la navegación
             lastRouteClients = data.waypoints
                 .sort((a, b) => a.waypoint_index - b.waypoint_index)
                 .map(w => {
@@ -315,6 +318,7 @@ window.createRoute=async function(){
     } catch(e) { alert("Error OSRM: " + e.message); }
 }
 
+/* === FUNCION PARA CARGAR RUTA PREVIA === */
 window.loadRoute=async function(id){ 
     const sn=await getDocs(coleccionRutas); const rd=sn.docs.find(d=>d.id===id); if(!rd)return;
     const d=rd.data(); 
@@ -330,33 +334,24 @@ window.loadRoute=async function(id){
     if(d.mode === "manual") {
         document.getElementById('startOption').value = "manual";
         document.getElementById('startAddress').style.display = "block";
-        document.getElementById('startAddress').value = "Cargando..."; // OSRM lo recalcula
+        document.getElementById('startAddress').value = "Cargando..."; 
     }
     window.createRoute();
 }
 
-// --- CORRECCIÓN CLAVE AQUÍ ---
+/* === FUNCION PARA OBTENER URL GOOGLE MAPS === */
 function getGoogleMapsUrl() {
     if (lastRouteClients.length < 2) return null;
-
-    // Origen: Si es GPS va vacío para que Google use ubicación real, si no, la dirección de texto
     const origin = (currentStartOption === "gps") ? "" : encodeURIComponent(lastRouteClients[0].address || `${lastRouteClients[0].lat},${lastRouteClients[0].lng}`);
-    
-    // Destino final: Priorizar dirección de texto para el número exacto
     const lastIdx = lastRouteClients.length - 1;
     const destClient = lastRouteClients[lastIdx];
-    const destination = (destClient.address && destClient.address.trim() !== "") 
-        ? encodeURIComponent(destClient.address) 
-        : `${destClient.lat},${destClient.lng}`;
-    
-    // Waypoints intermedios: Priorizar dirección de texto
+    const destination = (destClient.address && destClient.address.trim() !== "") ? encodeURIComponent(destClient.address) : `${destClient.lat},${destClient.lng}`;
     let waypoints = "";
     if (lastRouteClients.length > 2) {
         waypoints = lastRouteClients.slice(1, -1).map(c => {
             return (c.address && c.address.trim() !== "") ? encodeURIComponent(c.address) : `${c.lat},${c.lng}`;
         }).join('|');
     }
-
     return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${waypoints}&travelmode=driving`;
 }
 
@@ -379,10 +374,12 @@ window.openInWaze = function() {
     window.open(url, '_blank');
 }
 
+/* === FUNCION LOGIN === */
 window.login=async function(){ 
     try { await signInWithEmailAndPassword(auth,document.getElementById('email').value,document.getElementById('password').value); alert("Login OK"); cargarClientes(); cargarRutas(); showUserPosition(); } catch(e){ alert("Error: "+e.message); }
 }
 
+/* === MARCADOR DE USUARIO === */
 let userMarker = null;
 async function showUserPosition() {
     try {
@@ -394,6 +391,7 @@ async function showUserPosition() {
     } catch(e) { console.warn("No se pudo obtener la ubicación: ", e); }
 }
 
+/* === EVENT LISTENERS DOM === */
 document.addEventListener("DOMContentLoaded",()=>{
     document.getElementById('btnLogin').addEventListener('click',login);
     document.getElementById('btnAddClient').addEventListener('click',addClient);
