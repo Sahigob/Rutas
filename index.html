@@ -2,67 +2,180 @@
 <html lang="es">
 <head>
 <meta charset="utf-8" />
-<title>Rutas Comerciales PRO v2.4 - Corregido</title>
+<title>Rutas Comerciales PRO v2.4</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root {
-  --primary: #0ea5e9;
-  --primary-dark: #0284c7;
-  --bg: #f8fafc;
-  --card-bg: #ffffff;
-  --text: #1e293b;
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --bg-main: #f1f5f9;
+  --sidebar-bg: #ffffff;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
   --border: #e2e8f0;
+  --card-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
 }
 
-body { margin:0; font-family: 'Segoe UI', system-ui, sans-serif; display:flex; flex-direction: row; height:100vh; background: var(--bg); color: var(--text); }
-#map { flex:1; height: 100%; z-index: 1; }
-#panel { width:400px; padding:24px; overflow-y:auto; background: var(--card-bg); border-left: 1px solid var(--border); box-sizing: border-box; box-shadow: -4px 0 15px rgba(0,0,0,0.05); z-index: 10; }
+* { transition: all 0.2s ease; }
 
-@media (max-width: 768px) { 
-  body { flex-direction: column; } 
-  #map { flex: none; height: 35vh; } 
-  #panel { width: 100%; flex: 1; border-left: none; border-top: 2px solid var(--border); }
+body { 
+    margin: 0; 
+    font-family: 'Inter', sans-serif; 
+    display: flex; 
+    flex-direction: row; 
+    height: 100vh; 
+    background: var(--bg-main); 
+    color: var(--text-main); 
 }
 
-h3 { margin: 24px 0 12px 0; font-size: 1.1rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
-h3::before { content: ''; width: 4px; height: 18px; background: var(--primary); border-radius: 4px; }
+/* Map Styling */
+#map { flex: 1; height: 100%; z-index: 1; }
 
-.card { background: white; border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
-
-button { 
-  width:100%; padding:12px; margin:8px 0; border-radius:10px; border:none; background: var(--primary); color:white; 
-  font-weight:600; cursor:pointer; font-size: 14px; transition: all 0.2s; display: flex; justify-content: center; align-items: center; gap: 8px;
+/* Sidebar/Panel Styling */
+#panel { 
+    width: 420px; 
+    padding: 0; 
+    overflow-y: auto; 
+    background: var(--sidebar-bg); 
+    border-left: 1px solid var(--border); 
+    box-shadow: -10px 0 20px rgba(0,0,0,0.03); 
+    z-index: 10; 
+    display: flex;
+    flex-direction: column;
 }
-button:hover { background: var(--primary-dark); }
-button:active { transform: scale(0.98); }
 
-#btnRutaOrdenEstricto { background-color: #ffc107; color: #212529; border: 2px solid #e0a800; }
-#btnRutaOrdenEstricto:hover { background-color: #e0a800; }
+.panel-header {
+    padding: 24px;
+    background: white;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 20;
+}
 
-.smallBtn { padding:6px 12px; font-size:12px; margin: 4px 2px; width: auto; display: inline-flex; }
-.deleteBtn { background:#ef4444; }
-.deleteBtn:hover { background:#dc2626; }
-.saveBtn { background: #22c55e; }
+.panel-content { padding: 20px; }
 
+h3 { 
+    margin: 0 0 16px 0; 
+    font-size: 0.95rem; 
+    text-transform: uppercase; 
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Cards */
+.card { 
+    background: white; 
+    border: 1px solid var(--border); 
+    border-radius: 16px; 
+    padding: 20px; 
+    margin-bottom: 20px; 
+    box-shadow: var(--card-shadow);
+}
+
+.card:hover { border-color: #cbd5e1; }
+
+/* Forms */
 input, select, textarea { 
-  width:100%; margin:8px 0; padding:12px; border-radius:10px; border:1px solid var(--border); box-sizing: border-box; font-size: 14px; 
+    width: 100%; 
+    margin: 6px 0 12px 0; 
+    padding: 12px 16px; 
+    border-radius: 10px; 
+    border: 1px solid var(--border); 
+    box-sizing: border-box; 
+    font-size: 14px; 
+    background: #f8fafc;
 }
 
-.client { padding:12px; border: 1px solid var(--border); background: white; margin-bottom: 8px; border-radius: 10px; }
-.edit-mode { border: 2px solid var(--primary); background: #f0f9ff; }
-.stats-badge { background: #e0f2fe; color: #0369a1; padding: 4px 12px; border-radius: 20px; font-size: 0.85rem; }
-label { font-weight: 600; font-size: 13px; margin-bottom: 4px; display: block; }
-input[type="checkbox"] { width: auto; transform: scale(1.4); margin-right: 12px; cursor: pointer; }
+input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    background: white;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+label { font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px; display: block; }
+
+/* Buttons */
+button { 
+    width: 100%; border-radius: 12px; border: none; font-weight: 600; cursor: pointer; 
+    font-size: 14px; display: flex; justify-content: center; align-items: center; gap: 8px;
+    padding: 12px 20px; background: var(--primary); color: white;
+}
+
+button:hover { background: var(--primary-hover); transform: translateY(-1px); }
+button:active { transform: translateY(0); }
+
+#btnRutaOrdenEstricto { background: #f59e0b; color: white; }
+#btnRutaOrdenEstricto:hover { background: #d97706; }
+
+.smallBtn { padding: 8px 14px; font-size: 12px; width: auto; display: inline-flex; border-radius: 8px; border: 1px solid var(--border); background: white; color: var(--text-main); }
+.deleteBtn { background: #fef2f2; color: #ef4444; border: 1px solid #fee2e2; }
+.deleteBtn:hover { background: #ef4444; color: white; }
+.saveBtn { background: #10b981; color: white; }
+
+/* Client & Route Lists */
+.client { 
+    padding: 16px; 
+    background: white; 
+    margin-bottom: 12px; 
+    border-radius: 14px; 
+    border: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+}
+
+.client:hover { box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); }
+
+.edit-mode { 
+    border: 2px solid var(--primary); 
+    background: #f0f9ff; 
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.2); }
+    70% { box-shadow: 0 0 0 10px rgba(37, 99, 235, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+}
+
+.stats-badge { 
+    background: var(--primary); 
+    color: white; 
+    padding: 2px 10px; 
+    border-radius: 20px; 
+    font-size: 0.75rem; 
+    margin-left: auto;
+}
 
 .routeItem { 
-    display:flex; justify-content:space-between; align-items:center; 
-    margin-bottom:8px; font-size:13px; background:#f1f5f9; 
-    padding:8px 12px; border-radius:10px; border:1px solid #e2e8f0;
+    display: flex; justify-content: space-between; align-items: center; 
+    margin-bottom: 10px; font-size: 13px; background: #f8fafc; 
+    padding: 12px 16px; border-radius: 12px; border: 1px solid var(--border);
 }
 
-.debug-box { background: #1e293b; color: #38bdf8; font-family: monospace; padding: 10px; border-radius: 8px; font-size: 11px; margin-top: 10px; white-space: pre-wrap; display: none; }
+/* Custom Scrollbar */
+#panel::-webkit-scrollbar { width: 6px; }
+#panel::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+
+/* UI Fixes */
+.flex-row { display: flex; gap: 8px; }
+.btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+@media (max-width: 768px) { 
+    body { flex-direction: column; } 
+    #map { flex: none; height: 300px; } 
+    #panel { width: 100%; flex: 1; border-left: none; }
+}
+
+.debug-box { background: #0f172a; color: #38bdf8; font-family: 'Courier New', monospace; padding: 12px; border-radius: 10px; font-size: 11px; margin-top: 10px; opacity: 0.9; }
 </style>
 </head>
 <body>
@@ -70,50 +183,63 @@ input[type="checkbox"] { width: auto; transform: scale(1.4); margin-right: 12px;
 <div id="map"></div>
 
 <div id="panel">
-  <div class="card">
-    <h3>🔐 Login</h3>
-    <input id="email" placeholder="Correo electrónico" />
-    <input id="password" type="password" placeholder="Contraseña" />
-    <button id="btnLogin">Iniciar sesión</button>
+  <div class="panel-header">
+    <h2 style="margin:0; font-size: 1.25rem; font-weight: 800; color: var(--primary);">PRO ROUTES <span style="font-weight: 300; color: #94a3b8;">v2.4</span></h2>
   </div>
 
-  <div class="card">
-    <h3>👥 Gestión de Cliente</h3>
-    <input id="name" placeholder="Nombre cliente" />
-    <input id="address" placeholder="Dirección manual (Calle, Número, Ciudad)" />
-    <textarea id="notes" placeholder="Notas (ej: Hotel, Restaurante...)" rows="2"></textarea>
-    <div style="display:flex; gap:8px">
-        <input id="lat" placeholder="Latitud" />
-        <input id="lng" placeholder="Longitud" />
-    </div>
-    <button id="btnAddClient">➕ Guardar cliente</button>
-  </div>
+  <div class="panel-content">
+      <div class="card">
+        <h3><i class="fas fa-lock"></i> Acceso Local</h3>
+        <input id="email" placeholder="Correo electrónico" />
+        <input id="password" type="password" placeholder="Contraseña" />
+        <button id="btnLogin"><i class="fas fa-sign-in-alt"></i> Iniciar sesión</button>
+      </div>
 
-  <div class="card">
-    <h3>🧭 Planificador de Ruta</h3>
-    <label>Fecha:</label>
-    <input type="date" id="routeDate" />
-    <label>Salida:</label>
-    <select id="startOption">
-      <option value="gps">📍 Mi ubicación actual</option>
-      <option value="manual">✏️ Dirección manual</option>
-    </select>
-    <input id="startAddress" placeholder="Dirección de salida" style="display:none"/>
-    <button id="btnCreateRoute">🧭 Crear ruta</button>
-    <div id="debugOrder" class="debug-box"></div>
-    <div id="routeList"></div>
-  </div>
+      <div class="card">
+        <h3><i class="fas fa-user-plus"></i> Nuevo Cliente</h3>
+        <input id="name" placeholder="Nombre completo" />
+        <input id="address" placeholder="Dirección (Calle, Ciudad...)" />
+        <textarea id="notes" placeholder="Notas (Tipo de negocio, horario...)" rows="2"></textarea>
+        <div class="flex-row">
+            <input id="lat" placeholder="Latitud" />
+            <input id="lng" placeholder="Longitud" />
+        </div>
+        <button id="btnAddClient"><i class="fas fa-save"></i> Guardar en base de datos</button>
+      </div>
 
-  <div class="card">
-    <h3>🚗 Navegación</h3>
-    <button id="btnRutaOrdenEstricto"><i class="fas fa-route"></i> Google (Orden de Lista)</button>
-    <button id="btnGoogleMaps" style="background: #22c55e;">🌐 Google (Optimizado)</button>
-    <button id="btnWaze" style="background: #1e40af;">🛣️ Abrir Waze</button>
-    <button id="btnClearRoute" style="background: #64748b;">🧹 Limpiar mapa</button>
-  </div>
+      <div class="card">
+        <h3><i class="fas fa-map-marked-alt"></i> Planificar Ruta</h3>
+        <label>FECHA DE VISITA</label>
+        <input type="date" id="routeDate" />
+        <label>PUNTO DE PARTIDA</label>
+        <select id="startOption">
+          <option value="gps">📍 Mi ubicación actual</option>
+          <option value="manual">✏️ Dirección personalizada</option>
+        </select>
+        <input id="startAddress" placeholder="Escribe dirección de salida" style="display:none"/>
+        <button id="btnCreateRoute" style="background: #4f46e5;"><i class="fas fa-route"></i> Calcular Ruta Optimizado</button>
+        <div id="debugOrder" class="debug-box" style="display:none"></div>
+        <div id="routeList" style="margin-top: 15px;"></div>
+      </div>
 
-  <h3>📊 Clientes <span id="stats" class="stats-badge">0</span></h3>
-  <div id="clientList"></div>
+      <div class="card">
+        <h3><i class="fas fa-location-arrow"></i> Navegación Directa</h3>
+        <div class="btn-group">
+            <button id="btnRutaOrdenEstricto" title="Seguir orden de la lista"><i class="fas fa-list-ol"></i> Google</button>
+            <button id="btnGoogleMaps" style="background: #22c55e;"><i class="fab fa-google"></i> Smart</button>
+        </div>
+        <div class="btn-group" style="margin-top:8px;">
+            <button id="btnWaze" style="background: #33b1ff;"><i class="fab fa-waze"></i> Waze</button>
+            <button id="btnClearRoute" style="background: #94a3b8;"><i class="fas fa-eraser"></i> Limpiar</button>
+        </div>
+      </div>
+
+      <h3 style="padding: 0 10px;">
+          <i class="fas fa-users"></i> Listado de Clientes 
+          <span id="stats" class="stats-badge">0</span>
+      </h3>
+      <div id="clientList" style="padding: 0 10px 40px 10px;"></div>
+  </div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -167,9 +293,9 @@ async function cargarRutas(){
         const r = docSnap.data();
         let div=document.createElement('div'); div.className="routeItem";
         div.innerHTML=`<span>📅 ${r.date || 'Sin fecha'}</span> 
-            <div>
-                <button class="smallBtn" onclick="loadRoute('${docSnap.id}')">👁️ Ver</button>
-                <button class="smallBtn deleteBtn" onclick="deleteRoute('${docSnap.id}')">🗑️</button>
+            <div style="display:flex; gap:5px">
+                <button class="smallBtn" onclick="loadRoute('${docSnap.id}')"><i class="fas fa-eye"></i></button>
+                <button class="smallBtn deleteBtn" onclick="deleteRoute('${docSnap.id}')"><i class="fas fa-trash"></i></button>
             </div>`;
         container.appendChild(div);
     });
@@ -187,24 +313,25 @@ function renderClientes(){
                 <input id="edit_name" value="${c.name||''}" placeholder="Nombre" />
                 <input id="edit_address" value="${c.address||''}" placeholder="Dirección" />
                 <textarea id="edit_notes" rows="2" placeholder="Notas">${c.notes||''}</textarea>
-                <div style="display:flex; gap:4px">
+                <div class="flex-row">
                     <input id="edit_lat" value="${c.lat||''}" placeholder="Lat" />
                     <input id="edit_lng" value="${c.lng||''}" placeholder="Lng" />
                 </div>
                 <div style="display:flex; gap:8px; margin-top:8px">
                     <button class="smallBtn saveBtn" onclick="saveEditClient('${c.id}')">💾 Guardar</button>
-                    <button class="smallBtn" style="background:#64748b" onclick="cancelEdit()">❌</button>
+                    <button class="smallBtn" style="background:#64748b; color:white;" onclick="cancelEdit()">❌</button>
                 </div>`;
         } else {
-            div.innerHTML=`<div style="display:flex; align-items:center;">
-                    <input type="checkbox" id="c${i}" data-id="${c.id}"> 
+            div.innerHTML=`<div style="display:flex; align-items:flex-start; gap:12px">
+                    <input type="checkbox" id="c${i}" data-id="${c.id}" style="width:20px; height:20px; margin-top:2px; cursor:pointer;"> 
                     <div style="flex:1">
-                        <b>${c.name}</b><br><small>${c.address||'Sin dirección'}</small>
+                        <div style="font-weight:700; font-size:15px; color:var(--text-main)">${c.name}</div>
+                        <div style="font-size:12px; color:var(--text-muted); margin-top:2px;"><i class="fas fa-map-marker-alt"></i> ${c.address||'Sin dirección'}</div>
                     </div>
                 </div>
-                <div style="margin-top:8px">
-                    <button class="smallBtn" onclick='editClient("${c.id}")'>✏️ Editar</button>
-                    <button class="smallBtn deleteBtn" onclick='deleteClient("${c.id}")'>🗑️</button>
+                <div style="margin-top:12px; display:flex; gap:8px; padding-left:32px;">
+                    <button class="smallBtn" onclick='editClient("${c.id}")'><i class="fas fa-edit"></i> Editar</button>
+                    <button class="smallBtn deleteBtn" onclick='deleteClient("${c.id}")'><i class="fas fa-trash-alt"></i></button>
                 </div>`;
         }
         container.appendChild(div);
@@ -294,7 +421,6 @@ window.createRoute=async function(){
         const data = await response.json();
         
         if(data.waypoints) {
-            // Guardamos los clientes ordenados según OSRM para la navegación
             lastRouteClients = data.waypoints
                 .sort((a, b) => a.waypoint_index - b.waypoint_index)
                 .map(w => {
@@ -305,9 +431,9 @@ window.createRoute=async function(){
             lastRouteCoords = lastRouteClients.map(c => [c.lat, c.lng]);
 
             if(routeLine) map.removeLayer(routeLine); redMarkers.forEach(m=>map.removeLayer(m)); redMarkers=[];
-            routeLine=L.geoJSON(data.trips[0].geometry,{style:{color:'#0ea5e9',weight:5}}).addTo(map); 
+            routeLine=L.geoJSON(data.trips[0].geometry,{style:{color:'#2563eb',weight:6,opacity:0.8}}).addTo(map); 
             map.fitBounds(routeLine.getBounds());
-            lastRouteCoords.slice(1).forEach(c=>{ redMarkers.push(L.circleMarker(c,{radius:6,color:'red',fillOpacity:1}).addTo(map)); });
+            lastRouteCoords.slice(1).forEach(c=>{ redMarkers.push(L.circleMarker(c,{radius:6,color:'red',fillColor:'#fff',fillOpacity:1,weight:2}).addTo(map)); });
             
             await addDoc(coleccionRutas,{date:document.getElementById('routeDate').value, clients:sel.map(c=>c.id), start:{lat:sLat,lng:sLng}, mode:currentStartOption});
             cargarRutas();
@@ -330,33 +456,23 @@ window.loadRoute=async function(id){
     if(d.mode === "manual") {
         document.getElementById('startOption').value = "manual";
         document.getElementById('startAddress').style.display = "block";
-        document.getElementById('startAddress').value = "Cargando..."; // OSRM lo recalcula
+        document.getElementById('startAddress').value = "Cargando...";
     }
     window.createRoute();
 }
 
-// --- CORRECCIÓN CLAVE AQUÍ ---
 function getGoogleMapsUrl() {
     if (lastRouteClients.length < 2) return null;
-
-    // Origen: Si es GPS va vacío para que Google use ubicación real, si no, la dirección de texto
     const origin = (currentStartOption === "gps") ? "" : encodeURIComponent(lastRouteClients[0].address || `${lastRouteClients[0].lat},${lastRouteClients[0].lng}`);
-    
-    // Destino final: Priorizar dirección de texto para el número exacto
     const lastIdx = lastRouteClients.length - 1;
     const destClient = lastRouteClients[lastIdx];
-    const destination = (destClient.address && destClient.address.trim() !== "") 
-        ? encodeURIComponent(destClient.address) 
-        : `${destClient.lat},${destClient.lng}`;
-    
-    // Waypoints intermedios: Priorizar dirección de texto
+    const destination = (destClient.address && destClient.address.trim() !== "") ? encodeURIComponent(destClient.address) : `${destClient.lat},${destClient.lng}`;
     let waypoints = "";
     if (lastRouteClients.length > 2) {
         waypoints = lastRouteClients.slice(1, -1).map(c => {
             return (c.address && c.address.trim() !== "") ? encodeURIComponent(c.address) : `${c.lat},${c.lng}`;
         }).join('|');
     }
-
     return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${waypoints}&travelmode=driving`;
 }
 
