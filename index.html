@@ -138,11 +138,6 @@ const iconHotel = new L.Icon({
     iconUrl: "data:image/svg+xml;base64," + btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 38 38"><circle cx="19" cy="19" r="18" fill="#ff9900" stroke="white" stroke-width="2"/><text x="50%" y="55%" font-size="18" text-anchor="middle" fill="black" font-family="Arial" font-weight="bold" dominant-baseline="middle">H</text></svg>`), 
     iconSize:[38,38], iconAnchor:[19,38] 
 });
-// --- NUEVO ICONO DE PEAJE ---
-const iconToll = new L.Icon({ 
-    iconUrl: "data:image/svg+xml;base64," + btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 38 38"><circle cx="19" cy="19" r="18" fill="#ffc107" stroke="white" stroke-width="2"/><text x="50%" y="55%" font-size="18" text-anchor="middle" fill="black" font-family="Arial" font-weight="bold" dominant-baseline="middle">P</text></svg>`),
-    iconSize:[38,38], iconAnchor:[19,38]
-});
 const iconPin = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/684/684908.png", iconSize:[32,32], iconAnchor:[16,32] });
 const iconUser = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/684/684908.png", iconSize:[40,40], iconAnchor:[20,40] });
 
@@ -150,12 +145,9 @@ function getClientIcon(cliente){
   const text=(cliente.notes||"").toLowerCase();
   if(text.includes("comida")||text.includes("bar")||text.includes("restaurante")) return iconFood;
   if(text.includes("hotel")||text.includes("hostal")||text.includes("dormir")) return iconHotel;
-  if(text.includes("peaje")||text.includes("toll")) return iconToll;  // <-- NUEVO
   return iconNormal;
 }
 
-// ... el resto del script se mantiene exactamente igual ...
-// No se cambia nada más, solo se añadió iconToll y su uso en getClientIcon
 let map = L.map('map').setView([40.4168,-3.7038],12);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
