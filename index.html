@@ -152,6 +152,328 @@ function renderClientes(){
             div.innerHTML=`<div style="display:flex; align-items:center;"><input type="checkbox" id="c${i}"> <div style="flex:1"><b>${c.name}</b><br><small>${c.address || (c.lat?c.lat.toFixed(3)+','+c.lng.toFixed(3):'Sin dirección')}</small></div></div><div style="margin-top:8px"><button class="smallBtn" onclick='editClient("${c.id}")'>✏️ Editar</button><button class="smallBtn deleteBtn" onclick='deleteClient("${c.id}")'>🗑️ Borrar</button></div>`;
         }
         container.appendChild(div);
+        
+        if(c.lat && c.lng){ 
+            const defaultIcon = getClientIcon(c);
+            let m = L.marker([c.lat,c.lng], {icon: defaultIcon}).addTo(map).bindPopup(c.name);
+            
+            // Vincular el click del marcador con el checkbox
+            m.on('click', () => { 
+                const cb = document.getElementById('c'+i); 
+                if(cb){ 
+                    cb.checked = !cb.checked; 
+                    m.setIcon(cb.checked ? iconPin : defaultIcon); 
+                } 
+            });
+
+            // NUEVA LÓGICA: Vincular el cambio del checkbox con el icono del mapa
+            setTimeout(() => {
+                const cb = document.getElementById('c'+i);
+                if(cb) {
+                    cb.addEventListener('change', (e) => {
+                        m.setIcon(e.target.checked ? iconPin : defaultIcon);
+                    });
+                }
+            }, 0);
+
+            markers.push(m);
+        }
+    }); 
+    document.getElementById('stats').innerHTML=clients.length; 
+}
+
+// AÑADIR CLIENTE CON LÓGICA RESTAURADA (GPS SI VACÍO)
+window.addClient = async function() { 
+    const inName=document.getElementById('name'), inAddr=document.getElementById('address'), inLat=document.getElementById('manualLat'), inLng=document.getElementById('manualLng'), inNotes=document.getElementById('notes');
+    const name=inName.value.trim(), address=inAddr.value.trim(), mLat=inLat.value.trim(), mLng=inLng.value.trim();
+
+    if(!name) return alert("El nombre del cliente es obligatorio");
+
+    let finalLat, finalLng;
+
+    // 1. Prioridad Coordenadas
+    if(mLat && mLng) { 
+        finalLat=parseFloat(mLat); finalLng=parseFloat(mLng); 
+    } 
+    // 2. Prioridad Dirección
+    else if(address) { 
+        const co=await geocode(address); 
+        if(!co) return alert("No se pudo encontrar esa dirección");
+        finalLat=co.lat; finalLng=co.lng; 
+    } 
+    // 3. Prioridad GPS (Si todo lo demás está vacío)
+    else {
+        try {
+            const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej));
+            finalLat = pos.coords.latitude;
+            finalLng = pos.coords.longitude;
+        } catch(e) { return alert("No se pudo obtener tu GPS. Escribe una dirección."); }
+    }
+
+    try {
+        await addDoc(coleccionClientes, { name, address, lat: finalLat, lng: finalLng, notes: inNotes.value }); 
+        alert("✅ Cliente guardado correctamente");
+        // Limpiar y resetear foco
+        inName.value=""; inAddr.value=""; inLat.value=""; inLng.value=""; inNotes.value=""; inName.focus();
+        cargarClientes();
+    } catch(e) { alert("Error al guardar en la base de datos"); }
+}
+
+// RESTO DE FUNCIONES IGUALES
+window.editClient = function(id) { editingClientId = id; renderClientes(); }
+window.cancelEdit = function() { editingClientId = null; renderClientes(); }
+window.saveEditClient = async function(id) {
+    const n = document.getElementById('edit_name').value.trim(), a = document.getElementById('edit_address').value.trim(), nt = document.getElementById('edit_notes').value.trim();
+    try {
+        const co = await geocode(a);
+        const updateData = { name: n, address: a, notes: nt };
+        if(co) { updateData.lat = co.lat; updateData.lng = co.lng; }
+        await updateDoc(doc(db, "clientes", id), updateData);
+        editingClientId = null; cargarClientes();
+    } catch(e) { alert("Error"); }
+}
+window.deleteClient = async function(id) { if(confirm("¿Borrar?")) { await deleteDoc(doc(db,"clientes",id)); cargarClientes(); } };
+window.deleteRoute = async function(id) { if(confirm("¿Borrar ruta?")) { await deleteDoc(doc(db,"rutas",id)); cargarRutas(); } };
+
+window.createRoute = async function(isLoading = false){ 
+    let sel=clients.filter((c,i)=>document.getElementById('c'+i)?.checked); 
+    if(sel.length<1) return alert("Selecciona clientes"); 
+    currentStartOption = document.getElementById('startOption').value;
+    let sLat, sLng;
+    if(currentStartOption==="gps"){ 
+        try { const p=await new Promise((r,j)=>navigator.geolocation.getCurrentPosition(r,j)); sLat=p.coords.latitude; sLng=p.coords.longitude; } catch(e) { return alert("Error GPS"); }
+    } else { 
+        let ad=document.getElementById('startAddress').value.trim(); const c=await geocode(ad); if(!c) return alert("Salida no encontrada"); sLat=c.lat; sLng=c.lng; 
+    }
+    const inputCoords = [[sLat,sLng],...sel.map(c=>[c.lat,c.lng])];
+    const strCoords = inputCoords.map(c => `${c[1]},${c[0]}`).join(';');
+    try {
+        const res = await fetch(`https://router.project-osrm.org/trip/v1/driving/${strCoords}?source=first&destination=last&roundtrip=false&overview=full&geometries=geojson`);
+        const data = await res.json();
+        if(data.waypoints) {
+            lastRouteCoords = data.waypoints.sort((a, b) => a.waypoint_index - b.waypoint_index).map(w => [w.location[1], w.location[0]]);
+            lastRouteClients = lastRouteCoords.slice(1).map(coord => sel.find(c => c.lat.toFixed(4) == coord[0].toFixed(4) && c.lng.toFixed(4) == coord[1].toFixed(4))).filter(c => c);
+            if(routeLine) map.removeLayer(routeLine); redMarkers.forEach(m=>map.removeLayer(m)); redMarkers=[];
+            routeLine=L.geoJSON(data.trips[0].geometry,{style:{color:'#0ea5e9',weight:5}}).addTo(map); 
+            map.fitBounds(routeLine.getBounds());
+            lastRouteCoords.slice(1).forEach(c=>redMarkers.push(L.circleMarker(c,{radius:6,color:'red',fillOpacity:1}).addTo(map)));
+            if(!isLoading) { await addDoc(coleccionRutas,{date:document.getElementById('routeDate').value || "Sin fecha", clients:sel.map(c=>c.id), start:{lat:sLat,lng:sLng}, mode:currentStartOption}); cargarRutas(); }
+        }
+    } catch(e) { console.log(e); }
+}
+
+window.loadRoute = async function(id){ 
+    const sn=await getDocs(coleccionRutas); const rd=sn.docs.find(d=>d.id===id); if(!rd)return;
+    const d=rd.data(); 
+    clients.forEach((c, i) => { 
+        const cb = document.getElementById('c'+i); 
+        if(cb) { 
+            cb.checked = d.clients.includes(c.id); 
+            markers[i].setIcon(cb.checked ? iconPin : getClientIcon(c)); 
+        } 
+    });
+    document.getElementById('startOption').value = d.mode || "gps";
+    document.getElementById('routeDate').value = d.date || "";
+    window.createRoute(true);
+}
+
+window.enviarRutaGoogleOrdenEstricto = function() {
+    if (lastRouteCoords.length < 2) return alert("Crea una ruta azul primero");
+    let origin = (currentStartOption === "gps") ? "" : encodeURIComponent(document.getElementById('startAddress').value);
+    let lastClient = lastRouteClients[lastRouteClients.length - 1];
+    let destination = (lastClient && lastClient.address) ? encodeURIComponent(lastClient.address) : `${lastRouteCoords[lastRouteCoords.length-1][0]},${lastRouteCoords[lastRouteCoords.length-1][1]}`;
+    let waypoints = lastRouteClients.slice(0, -1).map(c => c.address ? encodeURIComponent(c.address) : `${c.lat},${c.lng}`).join('|');
+    window.open(`https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${waypoints}&travelmode=driving`, '_blank');
+}
+
+window.login = async function() { 
+    try { 
+        await signInWithEmailAndPassword(auth, document.getElementById('email').value, document.getElementById('password').value); 
+        alert("✅ Login correcto"); cargarClientes(); cargarRutas(); showUserPosition(); 
+    } catch(e) { alert("❌ Error de login"); }
+}
+
+let userMarker = null;
+async function showUserPosition() {
+    try {
+        const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej));
+        if(userMarker) map.removeLayer(userMarker);
+        userMarker = L.marker([pos.coords.latitude, pos.coords.longitude], {icon: iconUser}).addTo(map);
+        map.setView([pos.coords.latitude, pos.coords.longitude], 13);
+    } catch(e) { console.log(e); }
+}
+
+document.addEventListener("DOMContentLoaded",()=>{
+    document.getElementById('btnLogin').addEventListener('click',window.login);
+    document.getElementById('btnAddClient').addEventListener('click',window.addClient);
+    document.getElementById('btnCreateRoute').addEventListener('click',() => window.createRoute(false));
+    document.getElementById('btnRutaOrdenEstricto').addEventListener('click',window.enviarRutaGoogleOrdenEstricto);
+    document.getElementById('btnGoogleMaps').addEventListener('click',window.enviarRutaGoogleOrdenEstricto);
+    document.getElementById('btnWaze').addEventListener('click',()=>{
+        if(lastRouteCoords.length < 2) return alert("Crea ruta");
+        const dest = lastRouteCoords[lastRouteCoords.length-1];
+        window.open(`https://waze.com/ul?ll=${dest[0]},${dest[1]}&navigate=yes`, '_blank');
+    });
+    document.getElementById('btnClearRoute').addEventListener('click',()=>{ if(routeLine)map.removeLayer(routeLine); redMarkers.forEach(m=>map.removeLayer(m)); });
+    document.getElementById('startOption').addEventListener('change',e=>document.getElementById('startAddress').style.display=e.target.value==="manual"?"block":"none");
+    showUserPosition();
+});
+</script>
+</body>
+</html><!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>Rutas Comerciales PRO v3.6 - GPS Auto</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+<style>
+:root { --primary: #0ea5e9; --primary-dark: #0284c7; --bg: #f8fafc; --card-bg: #ffffff; --text: #1e293b; --border: #e2e8f0; }
+body { margin:0; font-family: 'Segoe UI', system-ui, sans-serif; display:flex; flex-direction: row; height:100vh; background: var(--bg); color: var(--text); }
+#map { flex:1; height: 100%; z-index: 1; }
+#panel { width:400px; padding:24px; overflow-y:auto; background: var(--card-bg); border-left: 1px solid var(--border); box-sizing: border-box; box-shadow: -4px 0 15px rgba(0,0,0,0.05); z-index: 10; }
+@media (max-width: 768px) { body { flex-direction: column; } #map { flex: none; height: 35vh; } #panel { width: 100%; flex: 1; border-left: none; border-top: 2px solid var(--border); } }
+h3 { margin: 24px 0 12px 0; font-size: 1.1rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+h3::before { content: ''; width: 4px; height: 18px; background: var(--primary); border-radius: 4px; }
+.card { background: white; border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+button { width:100%; padding:12px; margin:8px 0; border-radius:10px; border:none; background: var(--primary); color:white; font-weight:600; cursor:pointer; font-size: 14px; transition: all 0.2s; display: flex; justify-content: center; align-items: center; gap: 8px; }
+button:hover { background: var(--primary-dark); }
+#btnRutaOrdenEstricto { background-color: #ffc107; color: #212529; border: 2px solid #e0a800; }
+.smallBtn { padding:6px 12px; font-size:12px; margin: 4px 2px; width: auto; display: inline-flex; }
+.deleteBtn { background:#ef4444; }
+.saveBtn { background: #22c55e; }
+input, select, textarea { width:100%; margin:8px 0; padding:12px; border-radius:10px; border:1px solid var(--border); box-sizing: border-box; font-size: 14px; }
+.coord-row { display: flex; gap: 8px; }
+.client { padding:12px; border: 1px solid var(--border); background: white; margin-bottom: 8px; border-radius: 10px; }
+.edit-mode { border: 2px solid var(--primary); background: #f0f9ff; }
+.stats-badge { background: #e0f2fe; color: #0369a1; padding: 4px 12px; border-radius: 20px; font-size: 0.85rem; }
+input[type="checkbox"] { width: auto; transform: scale(1.4); margin-right: 12px; cursor: pointer; }
+.routeItem { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:13px; background:#f1f5f9; padding:8px 12px; border-radius:10px; border:1px solid #e2e8f0; }
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<div id="panel">
+  <div class="card">
+    <h3>🔐 Login</h3>
+    <input id="email" placeholder="Correo electrónico" />
+    <input id="password" type="password" placeholder="Contraseña" />
+    <button id="btnLogin">Iniciar sesión</button>
+  </div>
+
+  <div class="card">
+    <h3>👥 Gestión de Cliente</h3>
+    <input id="name" placeholder="Nombre cliente" />
+    <input id="address" placeholder="Dirección manual (vacío para GPS)" />
+    <div class="coord-row">
+        <input id="manualLat" placeholder="Latitud" />
+        <input id="manualLng" placeholder="Longitud" />
+    </div>
+    <textarea id="notes" placeholder="Notas (Hotel, Restaurante...)" rows="2"></textarea>
+    <button id="btnAddClient">➕ Guardar cliente</button>
+  </div>
+
+  <div class="card">
+    <h3>🧭 Planificador de Ruta</h3>
+    <label>Fecha:</label>
+    <input type="date" id="routeDate" />
+    <label>Salida:</label>
+    <select id="startOption">
+      <option value="gps">📍 Mi ubicación actual</option>
+      <option value="manual">✏️ Dirección manual</option>
+    </select>
+    <input id="startAddress" placeholder="Dirección de salida" style="display:none"/>
+    <button id="btnCreateRoute">🧭 Crear ruta</button>
+    <div id="routeList"></div>
+  </div>
+
+  <div class="card">
+    <h3>🚗 Navegación</h3>
+    <button id="btnRutaOrdenEstricto"><i class="fas fa-route"></i> Google (Orden de Lista)</button>
+    <button id="btnGoogleMaps" style="background: #22c55e;">🌐 Google (Optimizado)</button>
+    <button id="btnWaze" style="background: #1e40af;">🛣️ Abrir Waze</button>
+    <button id="btnClearRoute" style="background: #64748b;">🧹 Limpiar mapa</button>
+  </div>
+
+  <h3>📊 Clientes <span id="stats" class="stats-badge">0</span></h3>
+  <div id="clientList"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-auth.js";
+
+const firebaseConfig = { apiKey: "AIzaSyALty_4SfeZUg6B6_dbcOeZvGYpnu4gYsE", authDomain: "rutas-56f86.firebaseapp.com", projectId: "rutas-56f86", storageBucket: "rutas-56f86.appspot.com", messagingSenderId: "1026881492897", appId: "1:1026881492897:web:fcb315b53fcf5e40e3dde0" };
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+const coleccionClientes = collection(db,"clientes");
+const coleccionRutas = collection(db,"rutas");
+
+let clients=[], markers=[], redMarkers=[], routeLine, lastRouteCoords=[], lastRouteClients=[];
+let editingClientId = null;
+let currentStartOption = "gps";
+
+// ICONOS
+const iconNormal = new L.Icon({ iconUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png", shadowUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png", iconSize:[25,41], iconAnchor:[12,41] });
+const iconFood = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/3448/3448609.png", iconSize:[38,38], iconAnchor:[19,38] });
+const iconHotel = new L.Icon({ iconUrl: "data:image/svg+xml;base64," + btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 38 38"><circle cx="19" cy="19" r="18" fill="#ff9900" stroke="white" stroke-width="2"/><text x="50%" y="55%" font-size="18" text-anchor="middle" fill="black" font-family="Arial" font-weight="bold" dominant-baseline="middle">H</text></svg>`), iconSize:[38,38], iconAnchor:[19,38] });
+const iconPin = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/684/684908.png", iconSize:[32,32], iconAnchor:[16,32] });
+const iconUser = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/684/684908.png", iconSize:[40,40], iconAnchor:[20,40] });
+
+function getClientIcon(cliente){
+  const text=(cliente.notes||"").toLowerCase();
+  if(text.includes("comida")||text.includes("bar")||text.includes("restaurante")) return iconFood;
+  if(text.includes("hotel")||text.includes("hostal")||text.includes("dormir")) return iconHotel;
+  return iconNormal;
+}
+
+let map = L.map('map').setView([40.4168,-3.7038],12);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+async function geocode(addr){ 
+    try {
+        let res=await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr)}`); 
+        let data=await res.json(); 
+        return data.length>0 ? {lat:parseFloat(data[0].lat), lng:parseFloat(data[0].lon)} : null; 
+    } catch(e) { return null; }
+}
+
+async function cargarClientes(){ 
+    const snapshot=await getDocs(coleccionClientes); 
+    clients=snapshot.docs.map(d=>({...d.data(),id:d.id})).filter(c=>c.name); 
+    clients.sort((a,b)=>a.name.localeCompare(b.name)); 
+    renderClientes(); 
+}
+
+async function cargarRutas(){ 
+    const snapshot=await getDocs(coleccionRutas); 
+    const container=document.getElementById('routeList'); container.innerHTML=""; 
+    snapshot.docs.forEach(docSnap => {
+        const r = docSnap.data();
+        let div=document.createElement('div'); div.className="routeItem";
+        div.innerHTML=`<span>📅 ${r.date || 'Sin fecha'}</span><div><button class="smallBtn" onclick="loadRoute('${docSnap.id}')">👁️</button><button class="smallBtn deleteBtn" onclick="deleteRoute('${docSnap.id}')">🗑️</button></div>`;
+        container.appendChild(div);
+    });
+}
+
+function renderClientes(){ 
+    const container=document.getElementById('clientList'); container.innerHTML=""; 
+    markers.forEach(m=>map.removeLayer(m)); markers=[]; 
+    clients.forEach((c,i)=>{ 
+        let div=document.createElement('div'); div.className='client'; 
+        if(editingClientId === c.id) {
+            div.classList.add('edit-mode');
+            div.innerHTML = `<input id="edit_name" value="${c.name||''}" /><input id="edit_address" value="${c.address||''}" /><textarea id="edit_notes">${c.notes||''}</textarea><div style="display:flex; gap:8px"><button class="smallBtn saveBtn" onclick="saveEditClient('${c.id}')">💾</button><button class="smallBtn" onclick="cancelEdit()">❌</button></div>`;
+        } else {
+            div.innerHTML=`<div style="display:flex; align-items:center;"><input type="checkbox" id="c${i}"> <div style="flex:1"><b>${c.name}</b><br><small>${c.address || (c.lat?c.lat.toFixed(3)+','+c.lng.toFixed(3):'Sin dirección')}</small></div></div><div style="margin-top:8px"><button class="smallBtn" onclick='editClient("${c.id}")'>✏️ Editar</button><button class="smallBtn deleteBtn" onclick='deleteClient("${c.id}")'>🗑️ Borrar</button></div>`;
+        }
+        container.appendChild(div);
         if(c.lat && c.lng){ 
             const defaultIcon = getClientIcon(c);
             let m = L.marker([c.lat,c.lng], {icon: defaultIcon}).addTo(map).bindPopup(c.name);
