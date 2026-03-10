@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8" />
-<title>Rutas Comerciales PRO v3.6 - GPS Auto</title>
+<title>Rutas Comerciales PRO v3.0</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
@@ -22,7 +22,6 @@ button:hover { background: var(--primary-dark); }
 .deleteBtn { background:#ef4444; }
 .saveBtn { background: #22c55e; }
 input, select, textarea { width:100%; margin:8px 0; padding:12px; border-radius:10px; border:1px solid var(--border); box-sizing: border-box; font-size: 14px; }
-.coord-row { display: flex; gap: 8px; }
 .client { padding:12px; border: 1px solid var(--border); background: white; margin-bottom: 8px; border-radius: 10px; }
 .edit-mode { border: 2px solid var(--primary); background: #f0f9ff; }
 .stats-badge { background: #e0f2fe; color: #0369a1; padding: 4px 12px; border-radius: 20px; font-size: 0.85rem; }
@@ -45,12 +44,8 @@ input[type="checkbox"] { width: auto; transform: scale(1.4); margin-right: 12px;
   <div class="card">
     <h3>👥 Gestión de Cliente</h3>
     <input id="name" placeholder="Nombre cliente" />
-    <input id="address" placeholder="Dirección manual (vacío para GPS)" />
-    <div class="coord-row">
-        <input id="manualLat" placeholder="Latitud" />
-        <input id="manualLng" placeholder="Longitud" />
-    </div>
-    <textarea id="notes" placeholder="Notas (Hotel, Restaurante...)" rows="2"></textarea>
+    <input id="address" placeholder="Dirección manual" />
+    <textarea id="notes" placeholder="Notas (ej: Hotel, Restaurante...)" rows="2"></textarea>
     <button id="btnAddClient">➕ Guardar cliente</button>
   </div>
 
@@ -97,7 +92,7 @@ let clients=[], markers=[], redMarkers=[], routeLine, lastRouteCoords=[], lastRo
 let editingClientId = null;
 let currentStartOption = "gps";
 
-// ICONOS
+// ICONOS PERSONALIZADOS
 const iconNormal = new L.Icon({ iconUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png", shadowUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png", iconSize:[25,41], iconAnchor:[12,41] });
 const iconFood = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/3448/3448609.png", iconSize:[38,38], iconAnchor:[19,38] });
 const iconHotel = new L.Icon({ iconUrl: "data:image/svg+xml;base64," + btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 38 38"><circle cx="19" cy="19" r="18" fill="#ff9900" stroke="white" stroke-width="2"/><text x="50%" y="55%" font-size="18" text-anchor="middle" fill="black" font-family="Arial" font-weight="bold" dominant-baseline="middle">H</text></svg>`), iconSize:[38,38], iconAnchor:[19,38] });
@@ -114,13 +109,7 @@ function getClientIcon(cliente){
 let map = L.map('map').setView([40.4168,-3.7038],12);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-async function geocode(addr){ 
-    try {
-        let res=await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr)}`); 
-        let data=await res.json(); 
-        return data.length>0 ? {lat:parseFloat(data[0].lat), lng:parseFloat(data[0].lon)} : null; 
-    } catch(e) { return null; }
-}
+async function geocode(addr){ let res=await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr)}`); let data=await res.json(); return data.length>0 ? {lat:parseFloat(data[0].lat), lng:parseFloat(data[0].lon)} : null; }
 
 async function cargarClientes(){ 
     const snapshot=await getDocs(coleccionClientes); 
@@ -149,91 +138,66 @@ function renderClientes(){
             div.classList.add('edit-mode');
             div.innerHTML = `<input id="edit_name" value="${c.name||''}" /><input id="edit_address" value="${c.address||''}" /><textarea id="edit_notes">${c.notes||''}</textarea><div style="display:flex; gap:8px"><button class="smallBtn saveBtn" onclick="saveEditClient('${c.id}')">💾</button><button class="smallBtn" onclick="cancelEdit()">❌</button></div>`;
         } else {
-            div.innerHTML=`<div style="display:flex; align-items:center;"><input type="checkbox" id="c${i}"> <div style="flex:1"><b>${c.name}</b><br><small>${c.address || (c.lat?c.lat.toFixed(3)+','+c.lng.toFixed(3):'Sin dirección')}</small></div></div><div style="margin-top:8px"><button class="smallBtn" onclick='editClient("${c.id}")'>✏️ Editar</button><button class="smallBtn deleteBtn" onclick='deleteClient("${c.id}")'>🗑️ Borrar</button></div>`;
+            div.innerHTML=`<div style="display:flex; align-items:center;"><input type="checkbox" id="c${i}"> <div style="flex:1"><b>${c.name}</b><br><small>${c.address}</small></div></div><div style="margin-top:8px"><button class="smallBtn" onclick='editClient("${c.id}")'>✏️ Editar</button><button class="smallBtn deleteBtn" onclick='deleteClient("${c.id}")'>🗑️ Borrar</button></div>`;
         }
         container.appendChild(div);
-        
         if(c.lat && c.lng){ 
             const defaultIcon = getClientIcon(c);
             let m = L.marker([c.lat,c.lng], {icon: defaultIcon}).addTo(map).bindPopup(c.name);
-            
-            // Vincular el click del marcador con el checkbox
-            m.on('click', () => { 
-                const cb = document.getElementById('c'+i); 
-                if(cb){ 
-                    cb.checked = !cb.checked; 
-                    m.setIcon(cb.checked ? iconPin : defaultIcon); 
-                } 
-            });
-
-            // NUEVA LÓGICA: Vincular el cambio del checkbox con el icono del mapa
-            setTimeout(() => {
-                const cb = document.getElementById('c'+i);
-                if(cb) {
-                    cb.addEventListener('change', (e) => {
-                        m.setIcon(e.target.checked ? iconPin : defaultIcon);
-                    });
-                }
-            }, 0);
-
+            m.on('click', () => { const cb = document.getElementById('c'+i); if(cb){ cb.checked = !cb.checked; m.setIcon(cb.checked ? iconPin : defaultIcon); } });
             markers.push(m);
         }
     }); 
     document.getElementById('stats').innerHTML=clients.length; 
 }
 
-// AÑADIR CLIENTE CON LÓGICA RESTAURADA (GPS SI VACÍO)
-window.addClient = async function() { 
-    const inName=document.getElementById('name'), inAddr=document.getElementById('address'), inLat=document.getElementById('manualLat'), inLng=document.getElementById('manualLng'), inNotes=document.getElementById('notes');
-    const name=inName.value.trim(), address=inAddr.value.trim(), mLat=inLat.value.trim(), mLng=inLng.value.trim();
-
-    if(!name) return alert("El nombre del cliente es obligatorio");
-
-    let finalLat, finalLng;
-
-    // 1. Prioridad Coordenadas
-    if(mLat && mLng) { 
-        finalLat=parseFloat(mLat); finalLng=parseFloat(mLng); 
-    } 
-    // 2. Prioridad Dirección
-    else if(address) { 
-        const co=await geocode(address); 
-        if(!co) return alert("No se pudo encontrar esa dirección");
-        finalLat=co.lat; finalLng=co.lng; 
-    } 
-    // 3. Prioridad GPS (Si todo lo demás está vacío)
-    else {
-        try {
-            const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej));
-            finalLat = pos.coords.latitude;
-            finalLng = pos.coords.longitude;
-        } catch(e) { return alert("No se pudo obtener tu GPS. Escribe una dirección."); }
-    }
-
-    try {
-        await addDoc(coleccionClientes, { name, address, lat: finalLat, lng: finalLng, notes: inNotes.value }); 
-        alert("✅ Cliente guardado correctamente");
-        // Limpiar y resetear foco
-        inName.value=""; inAddr.value=""; inLat.value=""; inLng.value=""; inNotes.value=""; inName.focus();
-        cargarClientes();
-    } catch(e) { alert("Error al guardar en la base de datos"); }
-}
-
-// RESTO DE FUNCIONES IGUALES
+// FUNCIONES DE EDICIÓN
 window.editClient = function(id) { editingClientId = id; renderClientes(); }
 window.cancelEdit = function() { editingClientId = null; renderClientes(); }
 window.saveEditClient = async function(id) {
     const n = document.getElementById('edit_name').value.trim(), a = document.getElementById('edit_address').value.trim(), nt = document.getElementById('edit_notes').value.trim();
+    if(!n) return alert("Nombre obligatorio");
     try {
         const co = await geocode(a);
         const updateData = { name: n, address: a, notes: nt };
         if(co) { updateData.lat = co.lat; updateData.lng = co.lng; }
         await updateDoc(doc(db, "clientes", id), updateData);
         editingClientId = null; cargarClientes();
-    } catch(e) { alert("Error"); }
+    } catch(e) { alert("Error: " + e.message); }
 }
+
 window.deleteClient = async function(id) { if(confirm("¿Borrar?")) { await deleteDoc(doc(db,"clientes",id)); cargarClientes(); } };
 window.deleteRoute = async function(id) { if(confirm("¿Borrar ruta?")) { await deleteDoc(doc(db,"rutas",id)); cargarRutas(); } };
+
+// --- MEJORA: AÑADIR CLIENTE + LIMPIAR FORMULARIO ---
+window.addClient = async function() { 
+    const inputName = document.getElementById('name');
+    const inputAddr = document.getElementById('address');
+    const inputNotes = document.getElementById('notes');
+    
+    const name = inputName.value.trim();
+    const address = inputAddr.value.trim();
+    const notes = inputNotes.value.trim();
+
+    if(!name || !address) return alert("Nombre y Dirección son obligatorios");
+
+    const co = await geocode(address); 
+    if(!co) return alert("No encontrada");
+
+    try {
+        await addDoc(coleccionClientes, { name, address, lat: co.lat, lng: co.lng, notes }); 
+        
+        alert("✅ Cliente guardado correctamente");
+
+        // Limpieza de campos
+        inputName.value = "";
+        inputAddr.value = "";
+        inputNotes.value = "";
+        inputName.focus(); // Poner el foco para el siguiente cliente
+
+        cargarClientes();
+    } catch(e) { alert("Error: " + e.message); }
+}
 
 window.createRoute = async function(isLoading = false){ 
     let sel=clients.filter((c,i)=>document.getElementById('c'+i)?.checked); 
@@ -265,13 +229,7 @@ window.createRoute = async function(isLoading = false){
 window.loadRoute = async function(id){ 
     const sn=await getDocs(coleccionRutas); const rd=sn.docs.find(d=>d.id===id); if(!rd)return;
     const d=rd.data(); 
-    clients.forEach((c, i) => { 
-        const cb = document.getElementById('c'+i); 
-        if(cb) { 
-            cb.checked = d.clients.includes(c.id); 
-            markers[i].setIcon(cb.checked ? iconPin : getClientIcon(c)); 
-        } 
-    });
+    clients.forEach((c, i) => { const cb = document.getElementById('c'+i); if(cb) { cb.checked = d.clients.includes(c.id); markers[i].setIcon(cb.checked ? iconPin : getClientIcon(c)); } });
     document.getElementById('startOption').value = d.mode || "gps";
     document.getElementById('routeDate').value = d.date || "";
     window.createRoute(true);
@@ -289,8 +247,9 @@ window.enviarRutaGoogleOrdenEstricto = function() {
 window.login = async function() { 
     try { 
         await signInWithEmailAndPassword(auth, document.getElementById('email').value, document.getElementById('password').value); 
-        alert("✅ Login correcto"); cargarClientes(); cargarRutas(); showUserPosition(); 
-    } catch(e) { alert("❌ Error de login"); }
+        alert("✅ Login correcto. Cargando datos..."); 
+        cargarClientes(); cargarRutas(); showUserPosition(); 
+    } catch(e) { alert("❌ Error: " + e.message); }
 }
 
 let userMarker = null;
