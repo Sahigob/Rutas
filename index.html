@@ -7,1194 +7,64 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
 <style>
-:root {
-    --primary: #516ced;
-    --primary-dark: #3158e8;
-    --primary-glow: rgba(81,108,237,.28);
-    --bg: #050914;
-    --bg-2: #070b15;
-    --card-bg: rgba(11,17,31,.88);
-    --card-2: rgba(15,23,42,.82);
-    --text: #f3f6ff;
-    --muted: #8f9bb3;
-    --border: #1c2940;
-    --success: #35c759;
+:root { 
+    --primary: #0ea5e9; 
+    --primary-dark: #0284c7; 
+    --bg: #f1f5f9; 
+    --card-bg: #ffffff; 
+    --text: #1e293b; 
+    --border: #e2e8f0; 
+    --success: #10b981; 
     --warning: #f59e0b;
-    --danger: #ef5350;
-    --shadow: 0 14px 35px rgba(0,0,0,.28);
+    --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
 }
-
-* { box-sizing: border-box; }
-
-html, body {
-    background:
-        radial-gradient(circle at 50% -10%, rgba(81,108,237,.18), transparent 38%),
-        radial-gradient(circle at 100% 20%, rgba(49,88,232,.08), transparent 30%),
-        var(--bg);
-}
-
-body {
-    margin:0;
-    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    display:flex;
-    flex-direction:row;
-    height:100vh;
-    background:
-        radial-gradient(circle at 50% -10%, rgba(81,108,237,.18), transparent 38%),
-        linear-gradient(180deg, var(--bg-2), var(--bg));
-    color:var(--text);
-    overflow:hidden;
-    -webkit-tap-highlight-color:transparent;
-}
-
-#rotation-notice {
-    display:none;
-    position:fixed;
-    top:0;
-    left:0;
-    width:100%;
-    background:rgba(15,20,35,.94);
-    color:var(--text);
-    text-align:center;
-    padding:12px;
-    z-index:9999;
-    font-weight:800;
-    font-size:14px;
-    letter-spacing:.03em;
-    border-bottom:1px solid var(--border);
-    box-shadow:0 8px 24px rgba(0,0,0,.35);
-    backdrop-filter:blur(14px);
-    -webkit-backdrop-filter:blur(14px);
-}
-
-#map {
-    flex:1;
-    height:100%;
-    z-index:1;
-    background:#060a13;
-}
-
-#panel {
-    width:400px;
-    padding:20px;
-    overflow-y:auto;
-    background:rgba(7,11,21,.94);
-    border-left:1px solid var(--border);
-    box-shadow:-14px 0 35px rgba(0,0,0,.28);
-    z-index:10;
-    scrollbar-width:thin;
-    scrollbar-color:#263657 transparent;
-    backdrop-filter:blur(14px);
-    -webkit-backdrop-filter:blur(14px);
-}
-
-#panel::-webkit-scrollbar { width:6px; }
-#panel::-webkit-scrollbar-track { background:transparent; }
-#panel::-webkit-scrollbar-thumb { background:#263657; border-radius:10px; }
-
-h3 {
-    margin:20px 0 12px 0;
-    font-size:.82rem;
-    font-weight:950;
-    display:flex;
-    align-items:center;
-    gap:8px;
-    color:var(--text);
-    text-transform:uppercase;
-    letter-spacing:.06em;
-    font-style:italic;
-}
-
-h3::before {
-    content:'';
-    width:4px;
-    height:18px;
-    background:linear-gradient(180deg,#516ced,#3158e8);
-    border-radius:4px;
-    box-shadow:0 0 12px rgba(81,108,237,.55);
-}
-
-.card {
-    position:relative;
-    overflow:hidden;
-    background:linear-gradient(145deg,rgba(15,23,42,.92),rgba(8,13,25,.9));
-    border:1px solid var(--border);
-    border-radius:18px;
-    padding:16px;
-    margin-bottom:16px;
-    box-shadow:var(--shadow);
-    backdrop-filter:blur(14px);
-    -webkit-backdrop-filter:blur(14px);
-}
-
-.card::before {
-    content:'';
-    position:absolute;
-    top:0;
-    left:12%;
-    right:12%;
-    height:1px;
-    background:linear-gradient(90deg,transparent,rgba(81,108,237,.65),transparent);
-    opacity:.8;
-}
-
-button {
-    width:100%;
-    padding:12px;
-    margin:8px 0;
-    border-radius:12px;
-    border:1px solid rgba(255,255,255,.08);
-    background:linear-gradient(135deg,#516ced 0%,#3158e8 100%);
-    color:white;
-    font-weight:850;
-    cursor:pointer;
-    font-size:13px;
-    letter-spacing:.045em;
-    transition:all .2s ease;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    gap:8px;
-    box-shadow:0 8px 20px rgba(49,88,232,.22);
-    -webkit-tap-highlight-color:transparent;
-}
-
-button:hover {
-    background:linear-gradient(135deg,#6079f0 0%,#4165e9 100%);
-    transform:translateY(-1px);
-    box-shadow:0 10px 24px rgba(49,88,232,.3);
-}
-
-button:active {
-    transform:translateY(1px);
-}
-
-.btn-google-helper {
-    background:linear-gradient(135deg,#3158e8,#516ced);
-    font-size:11px;
-    padding:9px;
-    margin-top:4px;
-}
-
-.btn-register {
-    background:linear-gradient(135deg,#35c759,#25a947);
-    box-shadow:0 8px 20px rgba(53,199,89,.18);
-}
-
-#btnRutaOrdenEstricto {
-    background:linear-gradient(135deg,#f59e0b,#d97706);
-    color:white;
-    box-shadow:0 8px 20px rgba(245,158,11,.18);
-}
-
-.smallBtn {
-    padding:7px 12px;
-    font-size:11px;
-    margin:4px 2px;
-    width:auto;
-    display:inline-flex;
-    border-radius:9px;
-}
-
-.deleteBtn {
-    background:linear-gradient(135deg,#ef5350,#d83e3b);
-    box-shadow:0 6px 16px rgba(239,83,80,.16);
-}
-
-.saveBtn {
-    background:linear-gradient(135deg,#35c759,#25a947);
-    box-shadow:0 6px 16px rgba(53,199,89,.16);
-}
-
-input, select, textarea {
-    width:100%;
-    margin:8px 0;
-    padding:11px;
-    border-radius:11px;
-    border:1px solid #1c2940;
-    box-sizing:border-box;
-    font-size:14px;
-    font-family:inherit;
-    color:var(--text);
-    background:rgba(5,9,20,.78);
-    outline:none;
-    transition:border-color .2s ease, box-shadow .2s ease, background .2s ease;
-}
-
-input::placeholder, textarea::placeholder {
-    color:#68758e;
-}
-
-input:focus, select:focus, textarea:focus {
-    border-color:#516ced;
-    background:rgba(8,14,28,.95);
-    box-shadow:0 0 0 3px rgba(81,108,237,.12),0 0 18px rgba(81,108,237,.08);
-}
-
-select option {
-    background:#0b111f;
-    color:#f3f6ff;
-}
-
-.coord-container {
-    background:rgba(245,158,11,.07);
-    border:1px solid rgba(245,158,11,.25);
-    padding:10px;
-    border-radius:12px;
-    margin-top:10px;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.02);
-}
-
-.coord-container small {
-    color:#f5b84c !important;
-    font-weight:800;
-}
-
-.coord-row {
-    display:flex;
-    gap:8px;
-    margin-top:5px;
-}
-
-.coord-row input {
-    margin:0;
-    background:rgba(5,9,20,.82);
-    border:1px solid rgba(245,158,11,.35);
-    color:#f3f6ff;
-    font-family:monospace;
-    text-align:center;
-}
-
-.client {
-    padding:12px;
-    border:1px solid var(--border);
-    background:linear-gradient(145deg,rgba(15,23,42,.78),rgba(8,13,25,.76));
-    margin-bottom:10px;
-    border-radius:14px;
-    box-shadow:0 8px 22px rgba(0,0,0,.18);
-}
-
-.edit-mode {
-    border:2px solid var(--primary);
-    background:rgba(81,108,237,.09);
-    box-shadow:0 0 0 1px rgba(81,108,237,.12),0 12px 28px rgba(0,0,0,.25);
-}
-
-.stats-badge {
-    background:linear-gradient(135deg,#516ced,#3158e8);
-    color:white;
-    padding:3px 10px;
-    border-radius:20px;
-    font-size:.72rem;
-    margin-left:auto;
-    box-shadow:0 5px 14px rgba(49,88,232,.25);
-}
-
-input[type="checkbox"] {
-    width:auto;
-    accent-color:var(--primary);
-    transform:scale(1.2);
-    margin-right:12px;
-    cursor:pointer;
-}
-
-.routeItem {
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    margin-bottom:8px;
-    font-size:12px;
-    color:#cbd5e1;
-    background:rgba(5,9,20,.72);
-    padding:8px 12px;
-    border-radius:11px;
-    border:1px solid var(--border);
-}
-
-.hidden { display:none; }
-
-.marker-label {
-    background:#0b111f;
-    border:2px solid #ef5350;
-    border-radius:50%;
-    width:20px;
-    height:20px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-weight:950;
-    font-size:12px;
-    color:#ef5350;
-    box-shadow:0 0 12px rgba(239,83,80,.3);
-}
-
-@media (max-width:768px) {
-    body { flex-direction:row !important; }
-    #panel {
-        width:85%;
-        max-width:320px;
-        padding:15px;
-    }
-    @media (orientation:portrait) {
-        #rotation-notice { display:block; }
-        body { padding-top:45px; }
-    }
-}
-
-
-/* ===== PESTAÑAS DESPLEGABLES ===== */
-#panel {
-    width: 430px;
-    padding: 14px;
-}
-
-.accordion-tab {
-    margin-bottom: 10px;
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    background: linear-gradient(145deg, rgba(15,23,42,.92), rgba(8,13,25,.90));
-    box-shadow: 0 10px 28px rgba(0,0,0,.24);
-    overflow: hidden;
-}
-
-.accordion-header {
-    width: 100%;
-    min-height: 54px;
-    margin: 0;
-    padding: 12px 14px;
-    border: 0;
-    border-radius: 15px;
-    background: transparent;
-    color: var(--text);
-    justify-content: space-between;
-    text-align: left;
-    box-shadow: none;
-}
-
-.accordion-header:hover {
-    background: rgba(81,108,237,.08);
-    transform: none;
-    box-shadow: none;
-}
-
-.accordion-title {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-weight: 950;
-    font-style: italic;
-    text-transform: uppercase;
-}
-
-.accordion-arrow {
-    color: var(--muted);
-    transition: transform .2s ease;
-}
-
-.accordion-tab.open .accordion-arrow {
-    transform: rotate(180deg);
-    color: var(--primary);
-}
-
-.accordion-content {
-    display: none;
-    padding: 0 14px 14px;
-}
-
-.accordion-tab.open .accordion-content {
-    display: block;
-    animation: tabIn .2s ease;
-}
-
-.accordion-content .card {
-    margin: 0;
-}
-
-@keyframes tabIn {
-    from { opacity: 0; transform: translateY(-4px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-@media (max-width: 768px) {
-    #panel {
-        width: 92%;
-        max-width: 390px;
-        padding: 10px;
-    }
-}
-
+body { margin:0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; display:flex; flex-direction: row; height:100vh; background: var(--bg); color: var(--text); overflow: hidden; }
+#rotation-notice { display: none; position: fixed; top: 0; left: 0; width: 100%; background: var(--warning); color: white; text-align: center; padding: 12px; z-index: 9999; font-weight: bold; font-size: 14px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+#map { flex:1; height: 100%; z-index: 1; }
+#panel { width:400px; padding:20px; overflow-y:auto; background: var(--card-bg); border-left: 1px solid var(--border); box-sizing: border-box; box-shadow: -4px 0 15px rgba(0,0,0,0.08); z-index: 10; scrollbar-width: thin; }
+@media (max-width: 768px) { body { flex-direction: row !important; } #panel { width: 85%; max-width: 320px; padding: 15px; } @media (orientation: portrait) { #rotation-notice { display: block; } body { padding-top: 45px; } } }
+h3 { margin: 20px 0 12px 0; font-size: 0.9rem; font-weight: 700; display: flex; align-items: center; gap: 8px; color: #334155; text-transform: uppercase; }
+h3::before { content: ''; width: 4px; height: 18px; background: var(--primary); border-radius: 4px; }
+.card { background: white; border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: var(--shadow); }
+button { width:100%; padding:12px; margin:8px 0; border-radius:10px; border:none; background: var(--primary); color:white; font-weight:600; cursor:pointer; font-size: 13px; transition: all 0.2s ease; display: flex; justify-content: center; align-items: center; gap: 8px; }
+button:hover { background: var(--primary-dark); transform: translateY(-1px); }
+.btn-google-helper { background: #4285F4; font-size: 11px; padding: 8px; margin-top: 4px; }
+.btn-register { background: var(--success); }
+#btnRutaOrdenEstricto { background-color: var(--warning); color: white; }
+.smallBtn { padding:6px 12px; font-size:11px; margin: 4px 2px; width: auto; display: inline-flex; }
+.deleteBtn { background:#ef4444; }
+.saveBtn { background: #10b981; }
+input, select, textarea { width:100%; margin:8px 0; padding:11px; border-radius:10px; border: 1px solid var(--border); box-sizing: border-box; font-size: 14px; background: #f8fafc; }
+.coord-container { background: #fff7ed; border: 1px solid #fed7aa; padding: 10px; border-radius: 10px; margin-top: 10px; }
+.coord-row { display: flex; gap: 8px; margin-top: 5px; }
+.coord-row input { margin: 0; background: white; border: 1px solid #fdba74; font-family: monospace; text-align: center; }
+.client { padding:12px; border: 1px solid var(--border); background: #ffffff; margin-bottom: 10px; border-radius: 12px; }
+.edit-mode { border: 2px solid var(--primary); background: #f0f9ff; }
+.stats-badge { background: var(--primary); color: white; padding: 2px 10px; border-radius: 20px; font-size: 0.75rem; margin-left: auto;}
+input[type="checkbox"] { width: auto; accent-color: var(--primary); transform: scale(1.2); margin-right: 12px; cursor: pointer; }
+.routeItem { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:12px; background:#f1f5f9; padding:8px 12px; border-radius:10px; border:1px solid #e2e8f0; }
+.hidden { display: none; }
+.marker-label { background: white; border: 2px solid red; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; color: red; }
 </style>
 
-<style>
-#panel{width:min(520px,100%);padding:8px 10px;box-sizing:border-box}
-.accordion-tab{margin:0 0 8px;border:1px solid #1c294<div id="panel">
-  <div id="authSection" class="card">
-    <h3>🔐 Acceso</h3>
-    <input id="email" placeholder="Correo electrónico" />
-    <input id="password" type="password" placeholder="Contraseña (mín. 6)" />
-    <button id="btnLogin">Iniciar Sesión</button>
-    <button id="btnRegister" class="btn-register">Crear Cuenta Nueva</button>
-  </div>
-
-  <div id="mainSection" class="hidden">
-
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; background:rgba(15,23,42,.82); padding:9px 10px; border-radius:12px; border:1px solid var(--border);">
-        <span id="userDisplay" style="font-size:11px; color:#8f9bb3; font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:120px;"></span>
-        <button id="btnLogout" class="deleteBtn smallBtn">Salir</button>
-    </div>
-
-    <div class="accordion-tab">
-        <button type="button" class="accordion-header" aria-expanded="false">
-            <span class="accordion-title">👥 Registro de Cliente</span>
-            <span class="accordion-arrow">▼</span>
-        </button>
-        <div class="accordion-content">
-            <div class="card">
-                <h3>👥 Registro de Cliente</h3>
-                <input id="name" placeholder="Nombre cliente" />
-                <input id="address" placeholder="Dirección para buscar..." />
-                <button id="btnOpenGoogle" class="btn-google-helper"><i class="fab fa-google"></i> 1. Buscar coordenadas en Google</button>
-                <div class="coord-container">
-                    <small style="color:#f5b84c; font-weight:bold;">2. Pega aquí las coordenadas de Google:</small>
-                    <div class="coord-row">
-                        <input id="manualCoords" placeholder="Ej: 40.416775, -3.703790" />
-                    </div>
-                </div>
-                <textarea id="notes" placeholder="Notas (Hotel, Restaurante...)" rows="2" style="margin-top:10px"></textarea>
-                <button id="btnAddClient">➕ Guardar cliente</button>
-            </div>
-        </div>
-    </div>
-
-    <div class="accordion-tab">
-        <button type="button" class="accordion-header" aria-expanded="false">
-            <span class="accordion-title">🧭 Planificador</span>
-            <span class="accordion-arrow">▼</span>
-        </button>
-        <div class="accordion-content">
-            <div class="card">
-                <h3>🧭 Planificador</h3>
-                <input type="date" id="routeDate" />
-                <select id="startOption"><option value="gps">📍 Mi ubicación actual</option><option value="manual">✏️ Dirección manual</option></select>
-                <input id="startAddress" placeholder="Dirección de salida" style="display:none"/>
-                <button id="btnCreateRoute">🧭 Crear ruta</button>
-                <div id="routeList"></div>
-            </div>
-        </div>
-    </div>
-
-    <div class="accordion-tab">
-        <button type="button" class="accordion-header" aria-expanded="false">
-            <span class="accordion-title">🚗 Navegación</span>
-            <span class="accordion-arrow">▼</span>
-        </button>
-        <div class="accordion-content">
-            <div class="card">
-                <h3>🚗 Navegación</h3>
-                <button id="btnRutaOrdenEstricto"><i class="fas fa-route"></i> Google (Orden)</button>
-                <button id="btnGoogleMaps" style="background:#22c55e;">🌐 Google (Optim.)</button>
-                <button id="btnWaze" style="background:#3b82f6;">🛣️ Waze</button>
-                <button id="btnClearRoute" style="background:#34415a;">🧹 Limpiar</button>
-            </div>
-        </div>
-    </div>
-
-    <div class="accordion-tab">
-        <button type="button" class="accordion-header" aria-expanded="false">
-            <span class="accordion-title">📊 Clientes <span id="stats" class="stats-badge">0</span></span>
-            <span class="accordion-arrow">▼</span>
-        </button>
-        <div class="accordion-content">
-            <div class="card">
-                <div id="clientList"></div>
-            </div>
-        </div>
-    </div>
-
-</div>
-
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-    document.querySelectorAll(".accordion-header").forEach(function (header) {
-        header.addEventListener("click", function () {
-            var tab = header.parentElement;
-            var open = tab.classList.contains("open");
-            tab.classList.toggle("open", !open);
-            header.setAttribute("aria-expanded", String(!open));
-        });
-    });
-});
-</script>
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, where, getDoc } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-firestore.js";
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-auth.js";
-
-const firebaseConfig = { apiKey: "AIzaSyByi9lTT4kN4YbD8cneKLmTm05RzCAgPhI", authDomain: "organizador-de-visitas-f10ad.firebaseapp.com", projectId: "organizador-de-visitas-f10ad", storageBucket: "organizador-de-visitas-f10ad.firebasestorage.app", messagingSenderId: "737024476908", appId: "1:737024476908:web:09cf2cc99ac0b7352f07c9" };
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const auth = getAuth(app);
-
-let clients=[], markers=[], redMarkers=[], routeLine, lastRouteCoords=[], lastRouteClients=[], editingClientId = null, currentStartOption = "gps";
-
-const iconNormal = new L.Icon({ iconUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png", shadowUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png", iconSize:[25,41], iconAnchor:[12,41] });
-const iconFood = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/3448/3448609.png", iconSize:[38,38], iconAnchor:[19,38] });
-const iconHotel = new L.Icon({ iconUrl: "data:image/svg+xml;base64," + btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 38 38"><circle cx="19" cy="19" r="18" fill="#ff9900" stroke="white" stroke-width="2"/><text x="50%" y="55%" font-size="18" text-anchor="middle" fill="black" font-family="Arial" font-weight="bold" dominant-baseline="middle">H</text></svg>`), iconSize:[38,38], iconAnchor:[19,38] });
-const iconPin = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/684/684908.png", iconSize:[32,32], iconAnchor:[16,32] });
-const iconUser = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/684/684908.png", iconSize:[40,40], iconAnchor:[20,40] });
-
-function getClientIcon(cliente){
-  const text=(cliente.notes||"").toLowerCase();
-  if(text.includes("comida")||text.includes("bar")||text.includes("restaurante")) return iconFood;
-  if(text.includes("hotel")||text.includes("hostal")||text.includes("dormir")) return iconHotel;
-  return iconNormal;
-}
-
-let map;
-function initMap() {
-    if (map) return;
-    map = L.map('map').setView([40.4168,-3.7038],12);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-}
-initMap();
-
-onAuthStateChanged(auth, (user) => {
-    if (user) {
-        document.getElementById('authSection').classList.add('hidden');
-        document.getElementById('mainSection').classList.remove('hidden');
-        document.getElementById('userDisplay').innerText = user.email;
-        cargarClientes(); cargarRutas(); showUserPosition();
-    } else {
-        document.getElementById('authSection').classList.remove('hidden');
-        document.getElementById('mainSection').classList.add('hidden');
-    }
-});
-
-async function geocode(addr){ 
-    try {
-        let res=await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr)}`); 
-        let data=await res.json(); return data.length>0 ? {lat:parseFloat(data[0].lat), lng:parseFloat(data[0].lon)} : null; 
-    } catch(e) { return null; }
-}
-
-async function cargarClientes(){ 
-    if(!auth.currentUser) return;
-    const q = query(collection(db, "clientes"), where("userId", "==", auth.currentUser.uid));
-    const snapshot = await getDocs(q); clients = snapshot.docs.map(d=>({...d.data(),id:d.id})).filter(c=>c.name); 
-    clients.sort((a,b)=>a.name.localeCompare(b.name)); renderClientes(); 
-}
-
-function renderClientes(){ 
-    const container=document.getElementById('clientList'); container.innerHTML=""; 
-    markers.forEach(m=> { if(m) map.removeLayer(m); }); markers=[]; 
-    clients.forEach((c,i)=>{ 
-        let div=document.createElement('div'); div.className='client'; 
-        if(editingClientId === c.id) {
-            div.classList.add('edit-mode');
-            div.innerHTML = `<input id="edit_name" value="${c.name||''}" /><input id="edit_address" value="${c.address||''}" /><textarea id="edit_notes">${c.notes||''}</textarea><div style="display:flex; gap:8px"><button class="smallBtn saveBtn" onclick="saveEditClient('${c.id}')">💾</button><button class="smallBtn" onclick="cancelEdit()">❌</button></div>`;
-        } else {
-            div.innerHTML=`<div style="display:flex; align-items:center;"><input type="checkbox" id="c${i}" onchange="syncMarker(${i})"> <div style="flex:1"><b>${c.name}</b><br><small style="color: #64748b;">${c.address || 'GPS'}</small></div></div><div style="margin-top:8px"><button class="smallBtn" onclick='editClient("${c.id}")'>✏️ Editar</button><button class="smallBtn deleteBtn" onclick='deleteClient("${c.id}")'>🗑️ Borrar</button></div>`;
-        }
-        container.appendChild(div);
-        if(c.lat && c.lng){ 
-            const defaultIcon = getClientIcon(c);
-            let m = L.marker([c.lat,c.lng], {icon: defaultIcon}).addTo(map).bindPopup(c.name);
-            m.on('click', () => { 
-                const cb = document.getElementById('c'+i); 
-                if(cb){ cb.checked = !cb.checked; m.setIcon(cb.checked ? iconPin : defaultIcon); } 
-            });
-            markers[i] = m;
-        }
-    }); 
-    document.getElementById('stats').innerHTML=clients.length; 
-}
-
-window.syncMarker = function(i) {
-    if(markers[i]) {
-        const cb = document.getElementById('c'+i);
-        markers[i].setIcon(cb.checked ? iconPin : getClientIcon(clients[i]));
-    }
-}
-
-window.addClient = async function() { 
-    const inName=document.getElementById('name'), 
-          inAddr=document.getElementById('address'), 
-          inCoords=document.getElementById('manualCoords'), 
-          inNotes=document.getElementById('notes');
-
-    const name=inName.value.trim(), address=inAddr.value.trim(), coords=inCoords.value.trim();
-
-    if(!name) return alert("El nombre es obligatorio");
-    let finalLat, finalLng;
-
-    if(coords){
-        let parts = coords.replace(',', ' ').split(/\s+/);
-        if(parts.length >= 2){
-            finalLat = parseFloat(parts[0]);
-            finalLng = parseFloat(parts[1]);
-        }
-    } else if(address) { 
-        const co=await geocode(address); 
-        if(!co) return alert("⚠️ Dirección no encontrada."); 
-        finalLat=co.lat; finalLng=co.lng; 
-    } else { 
-        try { 
-            const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej)); 
-            finalLat = pos.coords.latitude; finalLng = pos.coords.longitude; 
-        } catch(e) { return alert("GPS necesario"); } 
-    }
-
-    await addDoc(collection(db, "clientes"), { name, address, lat: finalLat, lng: finalLng, notes: inNotes.value, userId: auth.currentUser.uid }); 
-    inName.value=""; inAddr.value=""; inCoords.value=""; inNotes.value=""; cargarClientes();
-}
-
-window.editClient = (id) => { editingClientId = id; renderClientes(); };
-window.cancelEdit = () => { editingClientId = null; renderClientes(); };
-window.saveEditClient = async (id) => {
-    const n = document.getElementById('edit_name').value.trim(), a = document.getElementById('edit_address').value.trim(), nt = document.getElementById('edit_notes').value.trim();
-    const data = { name: n, address: a, notes: nt };
-    const co = await geocode(a); if(co) { data.lat = co.lat; data.lng = co.lng; }
-    await updateDoc(doc(db, "clientes", id), data); editingClientId = null; cargarClientes();
-};
-
-window.deleteClient = async (id) => { if(confirm("¿Borrar?")) { await deleteDoc(doc(db,"clientes",id)); cargarClientes(); } };
-window.deleteRoute = async (id) => { if(confirm("¿Borrar ruta?")) { await deleteDoc(doc(db,"rutas",id)); cargarRutas(); } };
-
-window.createRoute = async function(isLoading = false){ 
-    let sel=clients.filter((c,i)=>document.getElementById('c'+i)?.checked); if(sel.length<1) return alert("Selecciona clientes"); 
-    currentStartOption = document.getElementById('startOption').value;
-    let sLat, sLng;
-    if(currentStartOption==="gps"){ try { const p=await new Promise((r,j)=>navigator.geolocation.getCurrentPosition(r,j)); sLat=p.coords.latitude; sLng=p.coords.longitude; } catch(e) { return alert("Error GPS"); } }
-    else { let ad=document.getElementById('startAddress').value.trim(); const c=await geocode(ad); if(!c) return alert("Salida no encontrada"); sLat=c.lat; sLng=c.lng; }
-    
-    sel.sort((a, b) => {
-        const distA = Math.sqrt(Math.pow(a.lat - sLat, 2) + Math.pow(a.lng - sLng, 2));
-        const distB = Math.sqrt(Math.pow(b.lat - sLat, 2) + Math.pow(b.lng - sLng, 2));
-        return distA - distB;
-    });
-
-    const inputCoords = [[sLat,sLng],...sel.map(c=>[c.lat,c.lng])];
-    const strCoords = inputCoords.map(c => `${c[1]},${c[0]}`).join(';');
-    try {
-        const res = await fetch(`https://router.project-osrm.org/trip/v1/driving/${strCoords}?source=first&roundtrip=false&overview=full&geometries=geojson`);
-        const data = await res.json();
-        if(data.trips) {
-            lastRouteCoords = data.waypoints.sort((a, b) => a.waypoint_index - b.waypoint_index).map(w => [w.location[1], w.location[0]]);
-            lastRouteClients = lastRouteCoords.slice(1).map(coord => sel.find(c => Math.abs(c.lat - coord[0]) < 0.0008 && Math.abs(c.lng - coord[1]) < 0.0008)).filter(c => c);
-            if(routeLine) map.removeLayer(routeLine); redMarkers.forEach(m=>map.removeLayer(m)); redMarkers=[];
-            routeLine=L.geoJSON(data.trips[0].geometry,{style:{color:'#0ea5e9',weight:5}}).addTo(map); 
-            map.fitBounds(routeLine.getBounds());
-            lastRouteCoords.slice(1).forEach((c, idx) => {
-                redMarkers.push(L.circleMarker(c,{radius:10,color:'red',fillColor:'white',fillOpacity:1}).addTo(map).bindTooltip(""+(idx+1), {permanent:true, direction:'center', className:'marker-label'}));
-            });
-            if(!isLoading) { await addDoc(collection(db, "rutas"),{date:document.getElementById('routeDate').value || "S/F", clients:sel.map(c=>c.id), userId: auth.currentUser.uid }); cargarRutas(); }
-        }
-    } catch(e) { console.error(e); }
-}
-
-window.loadRoute = async (id) => {
-    const docRef = doc(db, "rutas", id);
-    const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) {
-        const rutaData = docSnap.data();
-        clients.forEach((c, i) => {
-            const cb = document.getElementById('c'+i);
-            if(cb) cb.checked = rutaData.clients.includes(c.id);
-            if(markers[i]) markers[i].setIcon(cb.checked ? iconPin : getClientIcon(c));
-        });
-        window.createRoute(true);
-    }
-};
-
-window.enviarRutaGoogleMaps = function() {
-    if (lastRouteCoords.length < 2) return alert("Crea una ruta primero");
-    let origin = (currentStartOption === "gps") ? "My+Location" : encodeURIComponent(document.getElementById('startAddress').value);
-    let lastClient = lastRouteClients[lastRouteClients.length - 1];
-    let destination = (lastClient && lastClient.address) ? encodeURIComponent(lastClient.address) : `${lastRouteCoords[lastRouteCoords.length - 1][0]},${lastRouteCoords[lastRouteCoords.length - 1][1]}`;
-    let waypoints = lastRouteClients.slice(0, -1).map(c => c.address ? encodeURIComponent(c.address) : `${c.lat},${c.lng}`).join('|');
-    window.open(`https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${waypoints}&travelmode=driving`, '_blank');
-}
-
-async function cargarRutas(){ 
-    if(!auth.currentUser) return;
-    const q = query(collection(db, "rutas"), where("userId", "==", auth.currentUser.uid));
-    const snapshot = await getDocs(q); const container = document.getElementById('routeList'); container.innerHTML=""; 
-    snapshot.docs.forEach(docSnap => {
-        let div=document.createElement('div'); div.className="routeItem";
-        div.innerHTML=`<span>📅 ${docSnap.data().date || 'S/F'}</span><div><button class="smallBtn" onclick="loadRoute('${docSnap.id}')">👁️</button><button class="smallBtn deleteBtn" onclick="deleteRoute('${docSnap.id}')">🗑️</button></div>`;
-        container.appendChild(div);
-    });
-}
-
-async function showUserPosition() {
-    try {
-        navigator.geolocation.getCurrentPosition(pos => {
-            L.marker([pos.coords.latitude, pos.coords.longitude], {icon: iconUser}).addTo(map);
-            map.setView([pos.coords.latitude, pos.coords.longitude], 13);
-        });
-    } catch(e) {}
-}
-
-document.addEventListener("DOMContentLoaded",()=>{
-    document.getElementById('btnLogin').onclick = () => signInWithEmailAndPassword(auth, document.getElementById('email').value.trim(), document.getElementById('password').value).catch(e => alert(e.message));
-    document.getElementById('btnRegister').onclick = () => createUserWithEmailAndPassword(auth, document.getElementById('email').value.trim(), document.getElementById('password').value).then(() => alert("✅ Cuenta creada")).catch(e => alert("Mínimo 6 caracteres"));
-    document.getElementById('btnLogout').onclick = () => signOut(auth);
-    document.getElementById('btnAddClient').onclick = window.addClient;
-    document.getElementById('btnCreateRoute').onclick = () => window.createRoute(false);
-    document.getElementById('btnRutaOrdenEstricto').onclick = () => window.enviarRutaGoogleMaps();
-    document.getElementById('btnGoogleMaps').onclick = () => window.enviarRutaGoogleMaps();
-    document.getElementById('btnWaze').onclick = () => {
-        if(lastRouteCoords.length < 2) return alert("Crea ruta");
-        const dest = lastRouteCoords[lastRouteCoords.length-1];
-        window.open(`https://waze.com/ul?ll=${dest[0]},${dest[1]}&navigate=yes`, '_blank');
-    };
-    document.getElementById('btnClearRoute').onclick = () => { if(routeLine)map.removeLayer(routeLine); redMarkers.forEach(m=>map.removeLayer(m)); };
-    document.getElementById('startOption').onchange = (e) => document.getElementById('startAddress').style.display = e.target.value === "manual" ? "block" : "none";
-    document.getElementById('btnOpenGoogle').onclick = () => {
-        const addr = document.getElementById('address').value;
-        if(!addr) return alert("Escribe primero una dirección o nombre de negocio");
-        window.open(`https://www.google.com/maps/search/${encodeURIComponent(addr)}`, '_blank');
-    };
-});
-</script>
-</body>
-</html><!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="utf-8" />
-<title>Organizador de Rutas Ana</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
-<style>
-:root {
-    --primary: #516ced;
-    --primary-dark: #3158e8;
-    --primary-glow: rgba(81,108,237,.28);
-    --bg: #050914;
-    --bg-2: #070b15;
-    --card-bg: rgba(11,17,31,.88);
-    --card-2: rgba(15,23,42,.82);
-    --text: #f3f6ff;
-    --muted: #8f9bb3;
-    --border: #1c2940;
-    --success: #35c759;
-    --warning: #f59e0b;
-    --danger: #ef5350;
-    --shadow: 0 14px 35px rgba(0,0,0,.28);
-}
-
-* { box-sizing: border-box; }
-
-html, body {
-    background:
-        radial-gradient(circle at 50% -10%, rgba(81,108,237,.18), transparent 38%),
-        radial-gradient(circle at 100% 20%, rgba(49,88,232,.08), transparent 30%),
-        var(--bg);
-}
-
-body {
-    margin:0;
-    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    display:flex;
-    flex-direction:row;
-    height:100vh;
-    background:
-        radial-gradient(circle at 50% -10%, rgba(81,108,237,.18), transparent 38%),
-        linear-gradient(180deg, var(--bg-2), var(--bg));
-    color:var(--text);
-    overflow:hidden;
-    -webkit-tap-highlight-color:transparent;
-}
-
-#rotation-notice {
-    display:none;
-    position:fixed;
-    top:0;
-    left:0;
-    width:100%;
-    background:rgba(15,20,35,.94);
-    color:var(--text);
-    text-align:center;
-    padding:12px;
-    z-index:9999;
-    font-weight:800;
-    font-size:14px;
-    letter-spacing:.03em;
-    border-bottom:1px solid var(--border);
-    box-shadow:0 8px 24px rgba(0,0,0,.35);
-    backdrop-filter:blur(14px);
-    -webkit-backdrop-filter:blur(14px);
-}
-
-#map {
-    flex:1;
-    height:100%;
-    z-index:1;
-    background:#060a13;
-}
-
-#panel {
-    width:400px;
-    padding:20px;
-    overflow-y:auto;
-    background:rgba(7,11,21,.94);
-    border-left:1px solid var(--border);
-    box-shadow:-14px 0 35px rgba(0,0,0,.28);
-    z-index:10;
-    scrollbar-width:thin;
-    scrollbar-color:#263657 transparent;
-    backdrop-filter:blur(14px);
-    -webkit-backdrop-filter:blur(14px);
-}
-
-#panel::-webkit-scrollbar { width:6px; }
-#panel::-webkit-scrollbar-track { background:transparent; }
-#panel::-webkit-scrollbar-thumb { background:#263657; border-radius:10px; }
-
-h3 {
-    margin:20px 0 12px 0;
-    font-size:.82rem;
-    font-weight:950;
-    display:flex;
-    align-items:center;
-    gap:8px;
-    color:var(--text);
-    text-transform:uppercase;
-    letter-spacing:.06em;
-    font-style:italic;
-}
-
-h3::before {
-    content:'';
-    width:4px;
-    height:18px;
-    background:linear-gradient(180deg,#516ced,#3158e8);
-    border-radius:4px;
-    box-shadow:0 0 12px rgba(81,108,237,.55);
-}
-
-.card {
-    position:relative;
-    overflow:hidden;
-    background:linear-gradient(145deg,rgba(15,23,42,.92),rgba(8,13,25,.9));
-    border:1px solid var(--border);
-    border-radius:18px;
-    padding:16px;
-    margin-bottom:16px;
-    box-shadow:var(--shadow);
-    backdrop-filter:blur(14px);
-    -webkit-backdrop-filter:blur(14px);
-}
-
-.card::before {
-    content:'';
-    position:absolute;
-    top:0;
-    left:12%;
-    right:12%;
-    height:1px;
-    background:linear-gradient(90deg,transparent,rgba(81,108,237,.65),transparent);
-    opacity:.8;
-}
-
-button {
-    width:100%;
-    padding:12px;
-    margin:8px 0;
-    border-radius:12px;
-    border:1px solid rgba(255,255,255,.08);
-    background:linear-gradient(135deg,#516ced 0%,#3158e8 100%);
-    color:white;
-    font-weight:850;
-    cursor:pointer;
-    font-size:13px;
-    letter-spacing:.045em;
-    transition:all .2s ease;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    gap:8px;
-    box-shadow:0 8px 20px rgba(49,88,232,.22);
-    -webkit-tap-highlight-color:transparent;
-}
-
-button:hover {
-    background:linear-gradient(135deg,#6079f0 0%,#4165e9 100%);
-    transform:translateY(-1px);
-    box-shadow:0 10px 24px rgba(49,88,232,.3);
-}
-
-button:active {
-    transform:translateY(1px);
-}
-
-.btn-google-helper {
-    background:linear-gradient(135deg,#3158e8,#516ced);
-    font-size:11px;
-    padding:9px;
-    margin-top:4px;
-}
-
-.btn-register {
-    background:linear-gradient(135deg,#35c759,#25a947);
-    box-shadow:0 8px 20px rgba(53,199,89,.18);
-}
-
-#btnRutaOrdenEstricto {
-    background:linear-gradient(135deg,#f59e0b,#d97706);
-    color:white;
-    box-shadow:0 8px 20px rgba(245,158,11,.18);
-}
-
-.smallBtn {
-    padding:7px 12px;
-    font-size:11px;
-    margin:4px 2px;
-    width:auto;
-    display:inline-flex;
-    border-radius:9px;
-}
-
-.deleteBtn {
-    background:linear-gradient(135deg,#ef5350,#d83e3b);
-    box-shadow:0 6px 16px rgba(239,83,80,.16);
-}
-
-.saveBtn {
-    background:linear-gradient(135deg,#35c759,#25a947);
-    box-shadow:0 6px 16px rgba(53,199,89,.16);
-}
-
-input, select, textarea {
-    width:100%;
-    margin:8px 0;
-    padding:11px;
-    border-radius:11px;
-    border:1px solid #1c2940;
-    box-sizing:border-box;
-    font-size:14px;
-    font-family:inherit;
-    color:var(--text);
-    background:rgba(5,9,20,.78);
-    outline:none;
-    transition:border-color .2s ease, box-shadow .2s ease, background .2s ease;
-}
-
-input::placeholder, textarea::placeholder {
-    color:#68758e;
-}
-
-input:focus, select:focus, textarea:focus {
-    border-color:#516ced;
-    background:rgba(8,14,28,.95);
-    box-shadow:0 0 0 3px rgba(81,108,237,.12),0 0 18px rgba(81,108,237,.08);
-}
-
-select option {
-    background:#0b111f;
-    color:#f3f6ff;
-}
-
-.coord-container {
-    background:rgba(245,158,11,.07);
-    border:1px solid rgba(245,158,11,.25);
-    padding:10px;
-    border-radius:12px;
-    margin-top:10px;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.02);
-}
-
-.coord-container small {
-    color:#f5b84c !important;
-    font-weight:800;
-}
-
-.coord-row {
-    display:flex;
-    gap:8px;
-    margin-top:5px;
-}
-
-.coord-row input {
-    margin:0;
-    background:rgba(5,9,20,.82);
-    border:1px solid rgba(245,158,11,.35);
-    color:#f3f6ff;
-    font-family:monospace;
-    text-align:center;
-}
-
-.client {
-    padding:12px;
-    border:1px solid var(--border);
-    background:linear-gradient(145deg,rgba(15,23,42,.78),rgba(8,13,25,.76));
-    margin-bottom:10px;
-    border-radius:14px;
-    box-shadow:0 8px 22px rgba(0,0,0,.18);
-}
-
-.edit-mode {
-    border:2px solid var(--primary);
-    background:rgba(81,108,237,.09);
-    box-shadow:0 0 0 1px rgba(81,108,237,.12),0 12px 28px rgba(0,0,0,.25);
-}
-
-.stats-badge {
-    background:linear-gradient(135deg,#516ced,#3158e8);
-    color:white;
-    padding:3px 10px;
-    border-radius:20px;
-    font-size:.72rem;
-    margin-left:auto;
-    box-shadow:0 5px 14px rgba(49,88,232,.25);
-}
-
-input[type="checkbox"] {
-    width:auto;
-    accent-color:var(--primary);
-    transform:scale(1.2);
-    margin-right:12px;
-    cursor:pointer;
-}
-
-.routeItem {
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    margin-bottom:8px;
-    font-size:12px;
-    color:#cbd5e1;
-    background:rgba(5,9,20,.72);
-    padding:8px 12px;
-    border-radius:11px;
-    border:1px solid var(--border);
-}
-
-.hidden { display:none; }
-
-.marker-label {
-    background:#0b111f;
-    border:2px solid #ef5350;
-    border-radius:50%;
-    width:20px;
-    height:20px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-weight:950;
-    font-size:12px;
-    color:#ef5350;
-    box-shadow:0 0 12px rgba(239,83,80,.3);
-}
-
-@media (max-width:768px) {
-    body { flex-direction:row !important; }
-    #panel {
-        width:85%;
-        max-width:320px;
-        padding:15px;
-    }
-    @media (orientation:portrait) {
-        #rotation-notice { display:block; }
-        body { padding-top:45px; }
-    }
-}
-
-
-/* ===== PESTAÑAS DESPLEGABLES ===== */
-#panel {
-    width: 430px;
-    padding: 14px;
-}
-
-.accordion-tab {
-    margin-bottom: 10px;
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    background: linear-gradient(145deg, rgba(15,23,42,.92), rgba(8,13,25,.90));
-    box-shadow: 0 10px 28px rgba(0,0,0,.24);
-    overflow: hidden;
-}
-
-.accordion-header {
-    width: 100%;
-    min-height: 54px;
-    margin: 0;
-    padding: 12px 14px;
-    border: 0;
-    border-radius: 15px;
-    background: transparent;
-    color: var(--text);
-    justify-content: space-between;
-    text-align: left;
-    box-shadow: none;
-}
-
-.accordion-header:hover {
-    background: rgba(81,108,237,.08);
-    transform: none;
-    box-shadow: none;
-}
-
-.accordion-title {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-weight: 950;
-    font-style: italic;
-    text-transform: uppercase;
-}
-
-.accordion-arrow {
-    color: var(--muted);
-    transition: transform .2s ease;
-}
-
-.accordion-tab.open .accordion-arrow {
-    transform: rotate(180deg);
-    color: var(--primary);
-}
-
-.accordion-content {
-    display: none;
-    padding: 0 14px 14px;
-}
-
-.accordion-tab.open .accordion-content {
-    display: block;
-    animation: tabIn .2s ease;
-}
-
-.accordion-content .card {
-    margin: 0;
-}
-
-@keyframes tabIn {
-    from { opacity: 0; transform: translateY(-4px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-@media (max-width: 768px) {
-    #panel {
-        width: 92%;
-        max-width: 390px;
-        padding: 10px;
-    }
-}
-
-</style>
-
-<style>
-#panel{width:min(520px,100%);padding:8px 10px;box-sizing:border-box}
-.accordion-tab{margin:0 0 8px;border:1px solid #1c2940;border-radius:14px;overflow:hidden;background:rgba(7,11,21,.88);box-shadow:0 8px 24px rgba(0,0,0,.22);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
-.accordion-header{width:100%;min-height:46px;padding:9px 13px;border:0;background:linear-gradient(135deg,rgba(24,36,60,.95),rgba(12,20,36,.95));color:#f3f6ff;display:flex;align-items:center;justify-content:space-between;cursor:pointer;font:950 13px/1 Inter,system-ui,sans-serif;letter-spacing:.05em;text-transform:uppercase;text-align:left}
-.accordion-header:active{transform:scale(.99)}
-.accordion-arrow{transition:transform .2s ease}.accordion-tab.open .accordion-arrow{transform:rotate(180deg)}
-.accordion-content{display:none;padding:9px;border-top:1px solid rgba(28,41,64,.85)}
-.accordion-tab.open .accordion-content{display:block}
-@media(max-width:560px){#panel{padding:7px 8px}.accordion-content{padding:8px}}
+<style id="club-suki-premium-ui">
+:root{--primary:#1677ff;--primary-dark:#0b5fd1;--bg:#f4f7fb;--card-bg:rgba(255,255,255,.88);--text:#172033;--border:#e4eaf2;--success:#16a56b;--warning:#e59a16;--shadow:0 14px 36px rgba(27,45,75,.10)}
+body{background:linear-gradient(135deg,#f8fbff 0%,#eef4fa 100%);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+#map{background:#eaf0f6}
+#panel{background:rgba(255,255,255,.78);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-left:1px solid rgba(214,224,236,.9);box-shadow:-12px 0 40px rgba(31,48,76,.10);padding:18px}
+.card{background:rgba(255,255,255,.88);border:1px solid rgba(220,228,238,.95);border-radius:18px;padding:16px;box-shadow:0 10px 28px rgba(31,48,76,.07)}
+h3{color:#263248;letter-spacing:.04em}
+button{min-height:46px;border-radius:14px;box-shadow:0 5px 14px rgba(31,48,76,.08);transition:transform .16s ease,box-shadow .16s ease,filter .16s ease}
+button:hover{transform:translateY(-1px);box-shadow:0 8px 18px rgba(31,48,76,.12);filter:saturate(1.03)}
+input,select,textarea{background:rgba(248,250,253,.96);border-color:#dce4ee;color:#172033;min-height:44px;border-radius:13px;outline:none}
+input:focus,select:focus,textarea:focus{border-color:#78aafc;box-shadow:0 0 0 4px rgba(22,119,255,.10)}
+.coord-container{background:#fff9f0;border-color:#f4d6a7}
+.client{background:rgba(255,255,255,.84);border-color:#e2e8f0;border-radius:15px}
+.routeItem{background:#f7f9fc;border-color:#e1e7ef;border-radius:12px}
+.btn-travel-forecast{background:linear-gradient(135deg,#1677ff,#5b8cff)!important;color:#fff!important}
+.stats-badge{background:#1677ff}
+#btnClearRoute{box-shadow:none!important}
+@media(max-width:768px){#panel{width:min(92vw,360px);padding:14px}.card{padding:14px}.card button{min-height:48px}}
 </style>
 </head>
 <body>
@@ -1210,95 +80,51 @@ input[type="checkbox"] {
   </div>
 
   <div id="mainSection" class="hidden">
-
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; background:rgba(15,23,42,.82); padding:9px 10px; border-radius:12px; border:1px solid var(--border);">
-        <span id="userDisplay" style="font-size:11px; color:#8f9bb3; font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:120px;"></span>
+    <div style="display:flex; justify-content:space-between; align-items: center; margin-bottom: 15px; background: #f8fafc; padding: 10px; border-radius: 10px; border: 1px solid var(--border);">
+        <span id="userDisplay" style="font-size: 11px; color: #64748b; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 120px;"></span>
         <button id="btnLogout" class="deleteBtn smallBtn">Salir</button>
     </div>
 
-    <div class="accordion-tab open">
-        <button type="button" class="accordion-header" aria-expanded="true">
-            <span class="accordion-title">👥 Registro de Cliente</span>
-            <span class="accordion-arrow">▼</span>
-        </button>
-        <div class="accordion-content">
-            <div class="card">
-                <h3>👥 Registro de Cliente</h3>
-                <input id="name" placeholder="Nombre cliente" />
-                <input id="address" placeholder="Dirección para buscar..." />
-                <button id="btnOpenGoogle" class="btn-google-helper"><i class="fab fa-google"></i> 1. Buscar coordenadas en Google</button>
-                <div class="coord-container">
-                    <small style="color:#f5b84c; font-weight:bold;">2. Pega aquí las coordenadas de Google:</small>
-                    <div class="coord-row">
-                        <input id="manualCoords" placeholder="Ej: 40.416775, -3.703790" />
-                    </div>
-                </div>
-                <textarea id="notes" placeholder="Notas (Hotel, Restaurante...)" rows="2" style="margin-top:10px"></textarea>
-                <button id="btnAddClient">➕ Guardar cliente</button>
-            </div>
-        </div>
+    <div class="card">
+      <h3>👥 Registro de Cliente</h3>
+      <input id="name" placeholder="Nombre cliente" />
+      <input id="address" placeholder="Dirección para buscar..." />
+      <button id="btnOpenGoogle" class="btn-google-helper"><i class="fab fa-google"></i> 1. Buscar coordenadas en Google</button>
+      <div class="coord-container">
+          <small style="color: #9a3412; font-weight: bold;">2. Pega aquí las coordenadas de Google:</small>
+          <div class="coord-row">
+              <input id="manualCoords" placeholder="Ej: 40.416775, -3.703790" />
+          </div>
+      </div>
+      <textarea id="notes" placeholder="Notas (Hotel, Restaurante...)" rows="2" style="margin-top:10px"></textarea>
+      <button id="btnAddClient">➕ Guardar cliente</button>
     </div>
 
-    <div class="accordion-tab">
-        <button type="button" class="accordion-header" aria-expanded="false">
-            <span class="accordion-title">🧭 Planificador</span>
-            <span class="accordion-arrow">▼</span>
-        </button>
-        <div class="accordion-content">
-            <div class="card">
-                <h3>🧭 Planificador</h3>
-                <input type="date" id="routeDate" />
-                <select id="startOption"><option value="gps">📍 Mi ubicación actual</option><option value="manual">✏️ Dirección manual</option></select>
-                <input id="startAddress" placeholder="Dirección de salida" style="display:none"/>
-                <button id="btnCreateRoute">🧭 Crear ruta</button>
-                <div id="routeList"></div>
-            </div>
-        </div>
+    <div class="card">
+      <h3>🧭 Planificador</h3>
+      <input type="date" id="routeDate" />
+      <input type="time" id="routeDepartureTime" value="08:00" aria-label="Hora de salida" />
+      <select id="startOption"><option value="gps">📍 Mi ubicación actual</option><option value="manual">✏️ Dirección manual</option></select>
+      <input id="startAddress" placeholder="Dirección de salida" style="display:none"/>
+      <button id="btnCreateRoute">🧭 Crear ruta</button>
+      <div id="routeList"></div>
     </div>
 
-    <div class="accordion-tab">
-        <button type="button" class="accordion-header" aria-expanded="false">
-            <span class="accordion-title">🚗 Navegación</span>
-            <span class="accordion-arrow">▼</span>
-        </button>
-        <div class="accordion-content">
-            <div class="card">
-                <h3>🚗 Navegación</h3>
-                <button id="btnRutaOrdenEstricto"><i class="fas fa-route"></i> Google (Orden)</button>
-                <button id="btnGoogleMaps" style="background:#22c55e;">🌐 Google (Optim.)</button>
-                <button id="btnWaze" style="background:#3b82f6;">🛣️ Waze</button>
-                <button id="btnClearRoute" style="background:#34415a;">🧹 Limpiar</button>
-            </div>
-        </div>
+    <div class="card">
+      <h3>🚗 Navegación</h3>
+      <button id="btnRutaOrdenEstricto"><i class="fas fa-route"></i> Google (Orden)</button>
+      <button id="btnGoogleMaps" style="background: #22c55e;">🌐 Google (Optim.)</button>
+      <button id="btnWaze" style="background: #3b82f6;">🛣️ Waze</button>
+      <button id="btnTravelForecast" class="btn-travel-forecast">🌦️ PREVISIÓN DEL VIAJE</button>
+      <button id="btnClearRoute" style="background: #94a3b8;">🧹 Limpiar</button>
     </div>
 
-    <div class="accordion-tab">
-        <button type="button" class="accordion-header" aria-expanded="false">
-            <span class="accordion-title">📊 Clientes <span id="stats" class="stats-badge">0</span></span>
-            <span class="accordion-arrow">▼</span>
-        </button>
-        <div class="accordion-content">
-            <div class="card">
-                <div id="clientList"></div>
-            </div>
-        </div>
-    </div>
-
+    <h3 style="justify-content: space-between;">📊 Clientes <span id="stats" class="stats-badge">0</span></h3>
+    <div id="clientList"></div>
+  </div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-    document.querySelectorAll(".accordion-header").forEach(function (header) {
-        header.addEventListener("click", function () {
-            var tab = header.parentElement;
-            var open = tab.classList.contains("open");
-            tab.classList.toggle("open", !open);
-            header.setAttribute("aria-expanded", String(!open));
-        });
-    });
-});
-</script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, where, getDoc } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-firestore.js";
@@ -1489,6 +315,34 @@ window.enviarRutaGoogleMaps = function() {
     window.open(`https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${waypoints}&travelmode=driving`, '_blank');
 }
 
+function openTravelForecast() {
+    if (lastRouteCoords.length < 2) return alert("Crea una ruta primero");
+
+    const date = document.getElementById("routeDate").value;
+    const departure = document.getElementById("routeDepartureTime").value;
+
+    if (!date) return alert("Selecciona primero la fecha del viaje");
+    if (!departure) return alert("Selecciona primero la hora de salida");
+
+    const origin = (currentStartOption === "manual" && document.getElementById("startAddress").value.trim())
+        ? document.getElementById("startAddress").value.trim()
+        : `${lastRouteCoords[0][0]},${lastRouteCoords[0][1]}`;
+
+    const lastClient = lastRouteClients[lastRouteClients.length - 1];
+    const destination = (lastClient && lastClient.address)
+        ? lastClient.address
+        : `${lastRouteCoords[lastRouteCoords.length - 1][0]},${lastRouteCoords[lastRouteCoords.length - 1][1]}`;
+
+    const params = new URLSearchParams({
+        origin,
+        destination,
+        date,
+        departure
+    });
+
+    window.open(`viaje9.html?${params.toString()}`, "_blank");
+}
+
 async function cargarRutas(){ 
     if(!auth.currentUser) return;
     const q = query(collection(db, "rutas"), where("userId", "==", auth.currentUser.uid));
@@ -1517,6 +371,7 @@ document.addEventListener("DOMContentLoaded",()=>{
     document.getElementById('btnCreateRoute').onclick = () => window.createRoute(false);
     document.getElementById('btnRutaOrdenEstricto').onclick = () => window.enviarRutaGoogleMaps();
     document.getElementById('btnGoogleMaps').onclick = () => window.enviarRutaGoogleMaps();
+    document.getElementById('btnTravelForecast').onclick = () => openTravelForecast();
     document.getElementById('btnWaze').onclick = () => {
         if(lastRouteCoords.length < 2) return alert("Crea ruta");
         const dest = lastRouteCoords[lastRouteCoords.length-1];
