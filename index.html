@@ -113,7 +113,7 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-let clients=[], markers=[], redMarkers=[], routeLine, lastRouteCoords=[], lastRouteClients=[], lastListOrderClients=[], editingClientId = null, currentStartOption = "gps";
+let clients=[], markers=[], redMarkers=[], routeLine, lastRouteCoords=[], lastRouteClients=[], lastListOrderClients=[], selectionOrder=[], editingClientId = null, currentStartOption = "gps";
 
 const iconNormal = new L.Icon({ iconUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png", shadowUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png", iconSize:[25,41], iconAnchor:[12,41] });
 const iconFood = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/3448/3448609.png", iconSize:[38,38], iconAnchor:[19,38] });
@@ -163,7 +163,7 @@ async function cargarClientes(){
 }
 
 function renderClientes(){ 
-    const container=document.getElementById('clientList'); container.innerHTML=""; 
+    selectionOrder=[]; const container=document.getElementById('clientList'); container.innerHTML=""; 
     markers.forEach(m=> { if(m) map.removeLayer(m); }); markers=[]; 
     clients.forEach((c,i)=>{ 
         let div=document.createElement('div'); div.className='client'; 
@@ -179,7 +179,7 @@ function renderClientes(){
             let m = L.marker([c.lat,c.lng], {icon: defaultIcon}).addTo(map).bindPopup(c.name);
             m.on('click', () => { 
                 const cb = document.getElementById('c'+i); 
-                if(cb){ cb.checked = !cb.checked; m.setIcon(cb.checked ? iconPin : defaultIcon); } 
+                if(cb){ cb.checked = !cb.checked; m.setIcon(cb.checked ? iconPin : defaultIcon); syncSelectionOrder(); } 
             });
             markers[i] = m;
         }
@@ -187,7 +187,15 @@ function renderClientes(){
     document.getElementById('stats').innerHTML=clients.length; 
 }
 
+function syncSelectionOrder(seed){
+    const checked = clients.filter((c,i)=>document.getElementById('c'+i)?.checked).map(c=>c.id);
+    selectionOrder = selectionOrder.filter(id=>checked.includes(id));
+    (seed||[]).forEach(id=>{ if(checked.includes(id) && !selectionOrder.includes(id)) selectionOrder.push(id); });
+    checked.forEach(id=>{ if(!selectionOrder.includes(id)) selectionOrder.push(id); });
+}
+
 window.syncMarker = function(i) {
+    syncSelectionOrder();
     if(markers[i]) {
         const cb = document.getElementById('c'+i);
         markers[i].setIcon(cb.checked ? iconPin : getClientIcon(clients[i]));
@@ -245,7 +253,8 @@ window.createRoute = async function(isLoading = false){
     if(currentStartOption==="gps"){ try { const p=await new Promise((r,j)=>navigator.geolocation.getCurrentPosition(r,j)); sLat=p.coords.latitude; sLng=p.coords.longitude; } catch(e) { return alert("Error GPS"); } }
     else { let ad=document.getElementById('startAddress').value.trim(); const c=await geocode(ad); if(!c) return alert("Salida no encontrada"); sLat=c.lat; sLng=c.lng; }
     
-    const selListOrder = sel.slice(); /* orden del listado, antes de reordenar */
+    syncSelectionOrder();
+    const selListOrder = sel.slice().sort((a,b)=>selectionOrder.indexOf(a.id)-selectionOrder.indexOf(b.id)); /* orden en que se marcaron, antes de reordenar */
     sel.sort((a, b) => {
         const distA = Math.sqrt(Math.pow(a.lat - sLat, 2) + Math.pow(a.lng - sLng, 2));
         const distB = Math.sqrt(Math.pow(b.lat - sLat, 2) + Math.pow(b.lng - sLng, 2));
@@ -266,7 +275,7 @@ window.createRoute = async function(isLoading = false){
             lastRouteCoords.slice(1).forEach((c, idx) => {
                 redMarkers.push(L.circleMarker(c,{radius:10,color:'red',fillColor:'white',fillOpacity:1}).addTo(map).bindTooltip(""+(idx+1), {permanent:true, direction:'center', className:'marker-label'}));
             });
-            if(!isLoading) { await addDoc(collection(db, "rutas"),{date:document.getElementById('routeDate').value || "S/F", clients:sel.map(c=>c.id), userId: auth.currentUser.uid }); cargarRutas(); }
+            if(!isLoading) { await addDoc(collection(db, "rutas"),{date:document.getElementById('routeDate').value || "S/F", clients:selListOrder.map(c=>c.id), userId: auth.currentUser.uid }); cargarRutas(); }
         }
     } catch(e) { console.error(e); }
 }
@@ -281,6 +290,7 @@ window.loadRoute = async (id) => {
             if(cb) cb.checked = rutaData.clients.includes(c.id);
             if(markers[i]) markers[i].setIcon(cb.checked ? iconPin : getClientIcon(c));
         });
+        selectionOrder=[]; syncSelectionOrder(rutaData.clients);
         window.createRoute(true);
     }
 };
