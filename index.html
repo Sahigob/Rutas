@@ -323,6 +323,117 @@ window.enviarRutaGoogleMapsOrden = function() {
 }
 
 
+function mostrarSelectorFechaHora(onConfirm, fechaInicial) {
+    const existente = document.getElementById("selectorFechaHoraViaje");
+    if (existente) existente.remove();
+
+    const ahora = new Date();
+    const fechaHoy = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, "0")}-${String(ahora.getDate()).padStart(2, "0")}`;
+    const modal = document.createElement("div");
+    modal.id = "selectorFechaHoraViaje";
+    Object.assign(modal.style, {
+        position: "fixed", inset: "0", zIndex: "100000", background: "rgba(15, 23, 42, .72)",
+        display: "flex", alignItems: "center", justifyContent: "center", padding: "18px", boxSizing: "border-box"
+    });
+
+    const panel = document.createElement("div");
+    Object.assign(panel.style, {
+        width: "100%", maxWidth: "390px", background: "#fff", color: "#1e293b", borderRadius: "16px",
+        padding: "22px", boxSizing: "border-box", boxShadow: "0 20px 60px rgba(0,0,0,.28)",
+        fontFamily: "'Segoe UI', system-ui, sans-serif"
+    });
+
+    const titulo = document.createElement("h2");
+    titulo.textContent = "Fecha y hora del viaje";
+    Object.assign(titulo.style, { margin: "0 0 8px", fontSize: "20px", color: "#0f172a" });
+    const ayuda = document.createElement("p");
+    ayuda.textContent = "Selecciona los datos con el calendario y el reloj.";
+    Object.assign(ayuda.style, { margin: "0 0 18px", fontSize: "13px", color: "#475569" });
+
+    function crearCampo(etiquetaTexto, tipo, valor, icono, id) {
+        const grupo = document.createElement("div");
+        grupo.style.marginBottom = "16px";
+        const etiqueta = document.createElement("label");
+        etiqueta.htmlFor = id;
+        etiqueta.textContent = etiquetaTexto;
+        Object.assign(etiqueta.style, { display: "block", fontWeight: "700", fontSize: "14px", marginBottom: "7px" });
+        const fila = document.createElement("div");
+        Object.assign(fila.style, { display: "flex", alignItems: "stretch", gap: "8px" });
+        const campo = document.createElement("input");
+        campo.id = id;
+        campo.type = tipo;
+        campo.value = valor;
+        campo.required = true;
+        Object.assign(campo.style, {
+            flex: "1", minWidth: "0", width: "100%", boxSizing: "border-box", padding: "12px",
+            border: "1px solid #cbd5e1", borderRadius: "9px", background: "#f8fafc", color: "#0f172a",
+            fontSize: "16px", margin: "0"
+        });
+        const abrir = document.createElement("button");
+        abrir.type = "button";
+        abrir.textContent = icono;
+        abrir.setAttribute("aria-label", tipo === "date" ? "Abrir calendario" : "Abrir selector de hora");
+        Object.assign(abrir.style, {
+            flex: "0 0 52px", width: "52px", margin: "0", padding: "8px", border: "1px solid #cbd5e1",
+            borderRadius: "9px", background: "#eaf4ff", color: "#0f172a", fontSize: "22px", cursor: "pointer"
+        });
+        abrir.addEventListener("click", () => {
+            try {
+                if (typeof campo.showPicker === "function") campo.showPicker();
+                else { campo.focus(); campo.click(); }
+            } catch (_) { campo.focus(); campo.click(); }
+        });
+        campo.addEventListener("click", () => {
+            try { if (typeof campo.showPicker === "function") campo.showPicker(); } catch (_) {}
+        });
+        fila.append(campo, abrir);
+        grupo.append(etiqueta, fila);
+        return { grupo, campo };
+    }
+
+    const fechaCampo = crearCampo("¿Qué fecha tiene el viaje?", "date", fechaInicial || fechaHoy, "📅", "selectorFechaViajeValor");
+    const horaCampo = crearCampo("¿A qué hora sales?", "time", "08:00", "🕒", "selectorHoraViajeValor");
+
+    const acciones = document.createElement("div");
+    Object.assign(acciones.style, { display: "flex", gap: "10px", marginTop: "8px" });
+    const cancelar = document.createElement("button");
+    cancelar.type = "button";
+    cancelar.textContent = "Cancelar";
+    const confirmar = document.createElement("button");
+    confirmar.type = "button";
+    confirmar.textContent = "Continuar";
+    [cancelar, confirmar].forEach(b => Object.assign(b.style, {
+        flex: "1", width: "auto", margin: "0", padding: "12px", borderRadius: "9px", fontSize: "14px", cursor: "pointer"
+    }));
+    cancelar.style.background = "#e2e8f0";
+    cancelar.style.color = "#334155";
+    confirmar.style.background = "#7c3aed";
+    confirmar.style.color = "#fff";
+
+    cancelar.addEventListener("click", () => modal.remove());
+    confirmar.addEventListener("click", () => {
+        const fecha = fechaCampo.campo.value;
+        const hora = horaCampo.campo.value;
+        if (!fecha) { fechaCampo.campo.reportValidity(); return; }
+        if (!hora) { horaCampo.campo.reportValidity(); return; }
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha) || Number.isNaN(Date.parse(`${fecha}T00:00:00`))) {
+            alert("La fecha no es válida. Selecciona una fecha en el calendario."); return;
+        }
+        if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(hora)) {
+            alert("La hora no es válida. Selecciona la hora en el reloj."); return;
+        }
+        modal.remove();
+        // Se ejecuta desde el clic del usuario para evitar que el navegador bloquee la nueva pestaña.
+        onConfirm(fecha, hora);
+    });
+
+    acciones.append(cancelar, confirmar);
+    panel.append(titulo, ayuda, fechaCampo.grupo, horaCampo.grupo, acciones);
+    modal.appendChild(panel);
+    modal.addEventListener("click", event => { if (event.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+}
+
 window.consultarPrevisionViajes = function() {
     if (lastRouteCoords.length < 2 || !lastRouteOrigin || !lastListOrderClients.length) {
         return alert("Primero crea una ruta para poder analizarla.");
@@ -381,34 +492,27 @@ window.consultarPrevisionViajes = function() {
 
     const today = new Date();
     const localDate = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-    const date = window.prompt("¿Qué fecha tiene el viaje? (AAAA-MM-DD)", document.getElementById('routeDate').value || localDate);
-    if (date === null) return;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(`${date}T00:00:00`))) {
-        return alert("La fecha no es válida. Usa el formato AAAA-MM-DD.");
-    }
+    const fechaInicial = document.getElementById('routeDate').value || localDate;
 
-    const departure = window.prompt("¿A qué hora sales? (HH:MM)", "08:00");
-    if (departure === null) return;
-    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(departure)) {
-        return alert("La hora no es válida. Usa el formato HH:MM.");
-    }
+    mostrarSelectorFechaHora((date, departure) => {
+        const payload = { version: 1, date, departure, routeMode, stops };
+        let encoded;
+        try {
+            const bytes = new TextEncoder().encode(JSON.stringify(payload));
+            let binary = "";
+            bytes.forEach(byte => binary += String.fromCharCode(byte));
+            encoded = btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+        } catch (error) {
+            console.error("No se pudo preparar la ruta para Previsión Viajes", error);
+            alert("No se ha podido preparar la ruta. No se ha abierto la otra aplicación.");
+            return;
+        }
 
-    const payload = { version: 1, date, departure, routeMode, stops };
-    let encoded;
-    try {
-        const bytes = new TextEncoder().encode(JSON.stringify(payload));
-        let binary = "";
-        bytes.forEach(byte => binary += String.fromCharCode(byte));
-        encoded = btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
-    } catch (error) {
-        console.error("No se pudo preparar la ruta para Previsión Viajes", error);
-        return alert("No se ha podido preparar la ruta. No se ha abierto la otra aplicación.");
-    }
-
-    const modeLabel = routeMode === "selection-order" ? "orden de selección" : "ruta optimizada";
-    const target = "https://enlace386.github.io/Previsi-n-Viaje/#pv=" + encoded;
-    // La pestaña se abre con todas las paradas en el orden elegido; la app de destino sigue independiente.
-    window.open(target, "_blank", "noopener");
+        const target = "https://enlace386.github.io/Previsi-n-Viaje/#pv=" + encoded;
+        // Se abre desde el clic en «Continuar» para reducir el riesgo de bloqueo de ventanas emergentes.
+        const nuevaVentana = window.open(target, "_blank");
+        if (!nuevaVentana) alert("El navegador ha bloqueado la nueva pestaña. Permite las ventanas emergentes para abrir Previsión Viajes.");
+    }, fechaInicial);
 };
 
 async function cargarRutas(){ 
