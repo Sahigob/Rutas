@@ -94,6 +94,7 @@ input[type="checkbox"] { width: auto; accent-color: var(--primary); transform: s
       <button id="btnRutaOrdenEstricto"><i class="fas fa-route"></i> Google (Orden)</button>
       <button id="btnGoogleMaps" style="background: #22c55e;">🌐 Google (Optim.)</button>
       <button id="btnWaze" style="background: #3b82f6;">🛣️ Waze</button>
+      <button id="btnConsultarPrevision" style="background: #7c3aed;">🌦️ Consultar tiempo y tráfico</button>
       <button id="btnClearRoute" style="background: #94a3b8;">🧹 Limpiar</button>
     </div>
 
@@ -113,7 +114,7 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-let clients=[], markers=[], redMarkers=[], routeLine, lastRouteCoords=[], lastRouteClients=[], lastListOrderClients=[], selectionOrder=[], editingClientId = null, currentStartOption = "gps";
+let clients=[], markers=[], redMarkers=[], routeLine, lastRouteCoords=[], lastRouteClients=[], lastListOrderClients=[], selectionOrder=[], editingClientId = null, currentStartOption = "gps", lastRouteOrigin = null;
 
 const iconNormal = new L.Icon({ iconUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png", shadowUrl:"https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png", iconSize:[25,41], iconAnchor:[12,41] });
 const iconFood = new L.Icon({ iconUrl:"https://cdn-icons-png.flaticon.com/512/3448/3448609.png", iconSize:[38,38], iconAnchor:[19,38] });
@@ -252,6 +253,13 @@ window.createRoute = async function(isLoading = false){
     let sLat, sLng;
     if(currentStartOption==="gps"){ try { const p=await new Promise((r,j)=>navigator.geolocation.getCurrentPosition(r,j)); sLat=p.coords.latitude; sLng=p.coords.longitude; } catch(e) { return alert("Error GPS"); } }
     else { let ad=document.getElementById('startAddress').value.trim(); const c=await geocode(ad); if(!c) return alert("Salida no encontrada"); sLat=c.lat; sLng=c.lng; }
+    lastRouteOrigin = {
+        lat: sLat,
+        lng: sLng,
+        name: currentStartOption === "manual"
+            ? (document.getElementById('startAddress').value.trim() || `${sLat}, ${sLng}`)
+            : "Mi ubicación actual"
+    };
     
     syncSelectionOrder();
     const selListOrder = sel.slice().sort((a,b)=>selectionOrder.indexOf(a.id)-selectionOrder.indexOf(b.id)); /* orden en que se marcaron, antes de reordenar */
@@ -314,6 +322,54 @@ window.enviarRutaGoogleMapsOrden = function() {
     window.open(`https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${waypoints}&travelmode=driving`, '_blank');
 }
 
+
+window.consultarPrevisionViajes = function() {
+    if (lastRouteCoords.length < 2 || !lastRouteOrigin) {
+        return alert("Primero crea una ruta para poder analizarla.");
+    }
+
+    const today = new Date();
+    const localDate = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+    const date = window.prompt("¿Qué fecha tiene el viaje? (AAAA-MM-DD)", document.getElementById('routeDate').value || localDate);
+    if (date === null) return;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(`${date}T00:00:00`))) {
+        return alert("La fecha no es válida. Usa el formato AAAA-MM-DD.");
+    }
+
+    const departure = window.prompt("¿A qué hora sales? (HH:MM)", "08:00");
+    if (departure === null) return;
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(departure)) {
+        return alert("La hora no es válida. Usa el formato HH:MM.");
+    }
+
+    const stops = lastRouteCoords.map((coord, index) => {
+        // lastRouteClients ya conserva el mismo orden que las coordenadas de la ruta.
+        const client = index === 0 ? null : lastRouteClients[index - 1];
+        return {
+            name: index === 0 ? lastRouteOrigin.name : ((client && (client.name || client.address)) || `Parada ${index}`),
+            address: index === 0 ? lastRouteOrigin.name : ((client && client.address) || ""),
+            lat: Number(coord[0]),
+            lon: Number(coord[1])
+        };
+    });
+
+    // Keep the exact route order produced by the current VIAJES route planner.
+    const payload = { version: 1, date, departure, stops };
+    let encoded;
+    try {
+        const bytes = new TextEncoder().encode(JSON.stringify(payload));
+        let binary = "";
+        bytes.forEach(byte => binary += String.fromCharCode(byte));
+        encoded = btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+    } catch (error) {
+        console.error("No se pudo preparar la ruta para Previsión Viajes", error);
+        return alert("No se ha podido preparar la ruta. No se ha abierto la otra aplicación.");
+    }
+
+    const target = "https://enlace386.github.io/Previsi-n-Viaje/#pv=" + encoded;
+    window.open(target, "_blank", "noopener");
+};
+
 async function cargarRutas(){ 
     if(!auth.currentUser) return;
     const q = query(collection(db, "rutas"), where("userId", "==", auth.currentUser.uid));
@@ -342,6 +398,7 @@ document.addEventListener("DOMContentLoaded",()=>{
     document.getElementById('btnCreateRoute').onclick = () => window.createRoute(false);
     document.getElementById('btnRutaOrdenEstricto').onclick = () => window.enviarRutaGoogleMapsOrden();
     document.getElementById('btnGoogleMaps').onclick = () => window.enviarRutaGoogleMaps();
+    document.getElementById('btnConsultarPrevision').onclick = () => window.consultarPrevisionViajes();
     document.getElementById('btnWaze').onclick = () => {
         if(lastRouteCoords.length < 2) return alert("Crea ruta");
         const dest = lastRouteCoords[lastRouteCoords.length-1];
