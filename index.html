@@ -324,8 +324,59 @@ window.enviarRutaGoogleMapsOrden = function() {
 
 
 window.consultarPrevisionViajes = function() {
-    if (lastRouteCoords.length < 2 || !lastRouteOrigin) {
+    if (lastRouteCoords.length < 2 || !lastRouteOrigin || !lastListOrderClients.length) {
         return alert("Primero crea una ruta para poder analizarla.");
+    }
+
+    // La persona elige qué orden debe analizar Previsión Viajes.
+    const routeChoice = window.prompt(
+        "¿Cómo quieres analizar la ruta?\n\n" +
+        "1 = Respetar el orden en que seleccionaste los clientes\n" +
+        "2 = Ruta optimizada por eficiencia del recorrido\n\n" +
+        "Escribe 1 o 2:",
+        "2"
+    );
+    if (routeChoice === null) return;
+    if (routeChoice.trim() !== "1" && routeChoice.trim() !== "2") {
+        return alert("Opción no válida. Escribe 1 para respetar el orden o 2 para optimizar la ruta.");
+    }
+
+    const routeMode = routeChoice.trim() === "1" ? "selection-order" : "optimized";
+    let stops;
+
+    if (routeMode === "selection-order") {
+        // Origen + clientes exactamente en el orden en que fueron seleccionados.
+        stops = [
+            {
+                name: lastRouteOrigin.name,
+                address: currentStartOption === "manual" ? (document.getElementById('startAddress').value.trim() || lastRouteOrigin.name) : lastRouteOrigin.name,
+                lat: Number(lastRouteOrigin.lat),
+                lon: Number(lastRouteOrigin.lng)
+            },
+            ...lastListOrderClients.map((client, index) => ({
+                name: client.name || client.address || `Parada ${index + 1}`,
+                address: client.address || "",
+                lat: Number(client.lat),
+                lon: Number(client.lng)
+            }))
+        ];
+    } else {
+        // Utiliza el orden que generó el planificador de ruta optimizada de VIAJES.
+        stops = lastRouteCoords.map((coord, index) => {
+            const client = index === 0 ? null : lastRouteClients[index - 1];
+            return {
+                name: index === 0 ? lastRouteOrigin.name : ((client && (client.name || client.address)) || `Parada ${index}`),
+                address: index === 0
+                    ? (currentStartOption === "manual" ? (document.getElementById('startAddress').value.trim() || lastRouteOrigin.name) : lastRouteOrigin.name)
+                    : ((client && client.address) || ""),
+                lat: Number(coord[0]),
+                lon: Number(coord[1])
+            };
+        });
+    }
+
+    if (stops.length < 2 || stops.some(stop => !Number.isFinite(stop.lat) || !Number.isFinite(stop.lon))) {
+        return alert("No se han podido preparar todas las paradas de la ruta. No se ha abierto Previsión Viajes.");
     }
 
     const today = new Date();
@@ -342,19 +393,7 @@ window.consultarPrevisionViajes = function() {
         return alert("La hora no es válida. Usa el formato HH:MM.");
     }
 
-    const stops = lastRouteCoords.map((coord, index) => {
-        // lastRouteClients ya conserva el mismo orden que las coordenadas de la ruta.
-        const client = index === 0 ? null : lastRouteClients[index - 1];
-        return {
-            name: index === 0 ? lastRouteOrigin.name : ((client && (client.name || client.address)) || `Parada ${index}`),
-            address: index === 0 ? lastRouteOrigin.name : ((client && client.address) || ""),
-            lat: Number(coord[0]),
-            lon: Number(coord[1])
-        };
-    });
-
-    // Keep the exact route order produced by the current VIAJES route planner.
-    const payload = { version: 1, date, departure, stops };
+    const payload = { version: 1, date, departure, routeMode, stops };
     let encoded;
     try {
         const bytes = new TextEncoder().encode(JSON.stringify(payload));
@@ -366,7 +405,9 @@ window.consultarPrevisionViajes = function() {
         return alert("No se ha podido preparar la ruta. No se ha abierto la otra aplicación.");
     }
 
+    const modeLabel = routeMode === "selection-order" ? "orden de selección" : "ruta optimizada";
     const target = "https://enlace386.github.io/Previsi-n-Viaje/#pv=" + encoded;
+    // La pestaña se abre con todas las paradas en el orden elegido; la app de destino sigue independiente.
     window.open(target, "_blank", "noopener");
 };
 
